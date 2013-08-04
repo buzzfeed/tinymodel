@@ -14,6 +14,7 @@ from tinymodel import(
 
 
 class MyValidTypeClass(object):
+
     """
     An example of a user-defined class that would be valid as a TinyModel field type.
 
@@ -33,6 +34,7 @@ class MyValidTypeClass(object):
 
 
 class MyOtherValidTypeClass(object):
+
     """
     An example of a user-defined class that would be valid as a TinyModel field type.
 
@@ -52,6 +54,7 @@ class MyOtherValidTypeClass(object):
 
 
 class MyInvalidTypeClass(object):
+
     """
     An example of a user-defined class that would be invalid as a TinyModel field type.
 
@@ -62,6 +65,7 @@ class MyInvalidTypeClass(object):
 
 
 class MyValidTestModel(TinyModel):
+
     """
     A class used for testing. It has valid type definitions that includes a valid user-defined type
     as well as all supported builtin types and various nested collections of builtins.
@@ -96,6 +100,7 @@ class MyValidTestModel(TinyModel):
 
 
 class MyReferentialModel(TinyModel):
+
     """
     A class used for testing random-object generation on a referenced child object
 
@@ -107,6 +112,7 @@ class MyReferentialModel(TinyModel):
 
 
 class MySelfReferentialModel(TinyModel):
+
     """
     A class used for testing random-object generation on a self-referenced child object. The model_recursion_depth parameter should avoid infinite recursion.
 
@@ -118,6 +124,7 @@ class MySelfReferentialModel(TinyModel):
 
 
 class MyNonJsonModel(TinyModel):
+
     """
     A class used for testing. This is a valid class, but should fail JSON translation because of a required, non-JSONifiable field.
 
@@ -129,6 +136,7 @@ class MyNonJsonModel(TinyModel):
 
 
 class MyMissingFieldsModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of a missing FIELD_DEFS attribute
 
@@ -138,6 +146,7 @@ class MyMissingFieldsModel(TinyModel):
 
 
 class MyEmptyFieldsModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because the FIELD_DEFS attribute is an empty tuple
 
@@ -147,6 +156,7 @@ class MyEmptyFieldsModel(TinyModel):
 
 
 class MyUnnamedFieldModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of a FIELD_DEFS entry that has an empty name
 
@@ -156,6 +166,7 @@ class MyUnnamedFieldModel(TinyModel):
 
 
 class MyDuplicateFieldTitlesModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of two FIELD_DEFS entries that have the same title
 
@@ -166,6 +177,7 @@ class MyDuplicateFieldTitlesModel(TinyModel):
 
 
 class MyBadButUnvalidatedTypeModel(TinyModel):
+
     """
     A class used for testing. Has an unsupported Python built-in type in FIELD_DEFS but will validate because the field is set to unvalidated
 
@@ -177,6 +189,7 @@ class MyBadButUnvalidatedTypeModel(TinyModel):
 
 
 class MyUnsupportedBuiltinModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of an unsupported Python built-in type in FIELD_DEFS
 
@@ -188,6 +201,7 @@ class MyUnsupportedBuiltinModel(TinyModel):
 
 
 class MyUnsupportedMethodsModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of unsupported methods in SUPPORTED_METHODS
 
@@ -201,6 +215,7 @@ class MyUnsupportedMethodsModel(TinyModel):
 
 
 class MyInvalidUserDefinedTypeModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of an invalid user-defined type in FIELD_DEFS
 
@@ -212,6 +227,7 @@ class MyInvalidUserDefinedTypeModel(TinyModel):
 
 
 class MyOverwrittenSupportedMethodsModel(TinyModel):
+
     """
     A class used for testing. This contains an invalid user-defined type, but will still validate because SUPPORTED_METHODS was overwritten
 
@@ -225,6 +241,7 @@ class MyOverwrittenSupportedMethodsModel(TinyModel):
 
 
 class MyInvalidContainerTypeModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of a container type with multiple elements
 
@@ -236,6 +253,7 @@ class MyInvalidContainerTypeModel(TinyModel):
 
 
 class MyNonExistentModuleTypeModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of a user-defined type that references a non-existent module
 
@@ -247,6 +265,7 @@ class MyNonExistentModuleTypeModel(TinyModel):
 
 
 class MyOptionalNonExistentModuleTypeModel(TinyModel):
+
     """
     A class used for testing. This has a user-defined type that references a non-existent module but will validate because the field is set as optional
 
@@ -258,6 +277,7 @@ class MyOptionalNonExistentModuleTypeModel(TinyModel):
 
 
 class MyNonExistentClassTypeModel(TinyModel):
+
     """
     A class used for testing. This should fail to initialize because of a user-defined type that references a non-existent class
 
@@ -269,6 +289,7 @@ class MyNonExistentClassTypeModel(TinyModel):
 
 
 class MyOptionalNonExistentClassTypeModel(TinyModel):
+
     """
     A class used for testing. This has a user-defined type that references a non-existent class but will validate because the field is set as optional
 
@@ -285,9 +306,9 @@ class TinyModelTest(TestCase):
 
     def __test_value(self, allowed_types, value):
         if type(value) in self.COLLECTION_TYPES:
-            valid_allowed_types = [x for x in allowed_types if type(x) == type(value)]
+            valid_allowed_types = [x for x in allowed_types if isinstance(x, type(value))]
             ok_(valid_allowed_types)
-            if value and type(value) == dict:
+            if value and isinstance(value, dict):
                 self.__test_value(map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
                 self.__test_value(map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
             elif value:

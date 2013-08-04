@@ -13,9 +13,9 @@ def __validate_field_value(self, this_field, original_value, allowed_types, valu
     valid = False
 
     if type(value) in self.COLLECTION_TYPES:
-        valid_allowed_types = [x for x in allowed_types if type(x) == type(value)]
+        valid_allowed_types = [x for x in allowed_types if isinstance(x, type(value))]
         if valid_allowed_types:
-            if value and type(value) == dict:
+            if value and isinstance(value, dict):
                 key_valid = self.__validate_field_value(this_field, original_value, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
                 value_valid = self.__validate_field_value(this_field, original_value, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
                 valid = key_valid and value_valid
@@ -33,6 +33,7 @@ def __validate_field_value(self, this_field, original_value, allowed_types, valu
 
     this_field.was_validated = valid
     return valid
+
 
 def validate(self, prior_errors=[], warning_only=False):
     """

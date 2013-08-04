@@ -6,6 +6,7 @@ from internals import(
     random,
 )
 
+
 class ModelException(Exception):
     pass
 
@@ -15,6 +16,7 @@ class ValidationError(Exception):
 
 
 class FieldDef(object):
+
     """
     This class is an abstract representation of a field on a TinyModel.
     Instantiated objects of this class hold class-level about the FIELD_DEFS tuple on a TinyModel definition.
@@ -73,6 +75,7 @@ class FieldDef(object):
 
 
 class Field(object):
+
     """
     This class is an instance-level representation of a field on a TinyModel.
     Instantiated objects of this class hold validation data about the FIELDS tuple on a TinyModel.
@@ -108,6 +111,7 @@ class Field(object):
 
 
 class TinyModel(object):
+
     """
     Extends the rose.model.Model class to include datatypes and related functionality
 
@@ -137,7 +141,7 @@ class TinyModel(object):
             raise ModelException("Tried to set non-existent field " + str(name) + " on model " + str(type(self)) + "\n" +
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
-        #recalculate defaults
+        # recalculate defaults
         for field_def in filter(lambda f: f.default for f in self.FIELD_DEFS):
             value = field_def.default(self)
             default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
@@ -194,19 +198,19 @@ class TinyModel(object):
                 raise ModelException("Unsupported relationship: " + str(relationship))
             self.FIELDS.append(Field(field_def=field_def, value=value, is_id_field=True))
 
-        #set supported methods and builtins
+        # set supported methods and builtins
         if not getattr(self, 'SUPPORTED_METHODS', False):
             self.SUPPORTED_METHODS = defaults.SUPPORTED_METHODS
         if not getattr(self, 'SUPPORTED_BUILTINS', False):
             self.SUPPORTED_BUILTINS = defaults.SUPPORTED_BUILTINS
 
-        #validate model definition if it hasn't been already
+        # validate model definition if it hasn't been already
         if type(self) not in self.VALIDATED_CLASSES:
             field_def_validation.validate_builtin_method_support()
             field_def_validation.validate_field_types()
             self.VALIDATED_CLASSES.append(type(self))
 
-        #set initial values
+        # set initial values
         if from_json:
             initial_attributes = __from_json(self, from_json)
         elif from_foreign_model:
@@ -214,7 +218,7 @@ class TinyModel(object):
         else:
             initial_attributes = kwargs
 
-        #add fields for initial values, and set them. including relationship support fields
+        # add fields for initial values, and set them. including relationship support fields
         for (key, value) in initial_attributes.items():
             valid_field_titles = [key, key.rsplit("_id")[0], key.rsplit("_ids")[0]]
             this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
@@ -230,22 +234,17 @@ class TinyModel(object):
                 raise ModelException("Tried to set non-existent field " + str(name) + " on model " + str(type(self)) + "\n" +
                                      "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
-
     def __from_json(self, model_as_json, preprocessed=False, do_validation=True, warning_only=True):
         return json.from_json(tinymodel, model_as_json, preprocessed=prepreocessed, do_validation=do_validation, warning_only=warning_only)
-
 
     def __from_foreign_model(self, foreign_model):
         return foreign_model.from_foreign_model(self, foreign_model)
 
-
     def to_json(self, do_validation=True, warning_only=True, return_dict=False):
         return json.to_json(self, do_validation=do_validation, warning_only=warning_only, return_dict=return_dict)
 
-
     def validate(self, prior_errors=[], warning_only=False):
         return validation.validate(self, prior_errors=[], warning_only=False)
-
 
     def random(self, model_recursion_depth=1):
         return random.random(self, model_recursion_depth=model_recursion_depth)

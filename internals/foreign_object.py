@@ -1,5 +1,6 @@
 from utils import UNDEFINED
 
+
 def from_foreign_model(tinymodel, foreign_model):
     """
     Translates field values from a foreign model to a TinyModel.

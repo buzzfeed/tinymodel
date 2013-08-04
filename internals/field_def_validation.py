@@ -3,6 +3,7 @@ import collections
 
 from importlib import import_module
 
+
 def validate_builtin_method_support(tinymodel):
     """
     Checks that all of the builtins defined in SUPPORTED_BUILTINS support all of methods defined in SUPPORTED_METHODS
@@ -15,6 +16,7 @@ def validate_builtin_method_support(tinymodel):
                 tinymodel.VALIDATION_FAILURES.append(method + " not supported by builtin type: " + str(builtin))
     if tinymodel.VALIDATION_FAILURES:
         raise ValidationError("Supported methods validation failed on TinyModel of class " + str(type(tinymodel)) + "\nUnsupported methods:\n" + "\n".join(tinymodel.VALIDATION_FAILURES))
+
 
 def validate_field_types(tinymodel):
     """
@@ -48,6 +50,7 @@ def validate_field_types(tinymodel):
     else:
         raise ValidationError("FIELD_DEFS list is missing or empty on TinyModel of class " + str(type(tinymodel)))
 
+
 def __validate_type(tinymodel, field_name, field_type):
     """
     Checks the validity of a field type. Collection types (i.e. dict, list, tuple and set) are handled recursively.
@@ -61,17 +64,18 @@ def __validate_type(tinymodel, field_name, field_type):
     if type(field_type) in (list, tuple, set):
         for element in field_type:
             __validate_type(field_name=field_name, field_type=element)
-    elif type(field_type) == dict:
+    elif isinstance(field_type, dict):
         for key, value in field_type.iteritems():
             __validate_type(field_name=field_name, field_type=key)
             __validate_type(field_name=field_name, field_type=value)
-    elif type(field_type) == type:
+    elif isinstance(field_type, type):
         if field_type not in tinymodel.SUPPORTED_BUILTINS:
             for required_method in tinymodel.SUPPORTED_METHODS:
                 if required_method not in dir(field_type):
                     tinymodel.VALIDATION_FAILURES.append(field_name + ": " + str(field_type) + " missing required method " + required_method)
     else:
         tinymodel.VALIDATION_FAILURES.append(field_name + ": " + str(type(field_type)) + " not a recognized type")
+
 
 def __substitute_class_refs(tinymodel, field_name, required, field_type):
     """
@@ -86,18 +90,18 @@ def __substitute_class_refs(tinymodel, field_name, required, field_type):
     """
     if type(field_type) in tinymodel.COLLECTION_TYPES and len(field_type) > 1:
         raise Exception(str(type(field_type)) + " field types can only have one element: " + field_name + " on TinyModel " + str(type(tinymodel)))
-    elif type(field_type) == list:
+    elif isinstance(field_type, list):
         return [__substitute_class_refs(field_name=field_name, required=required, field_type=field_type[0])]
-    elif type(field_type) == tuple:
+    elif isinstance(field_type, tuple):
         return tuple([__substitute_class_refs(field_name=field_name, required=required, field_type=field_type[0])])
-    elif type(field_type) == set:
+    elif isinstance(field_type, set):
         return set([__substitute_class_refs(field_name=field_name, required=required, field_type=iter(field_type).next())])
-    elif type(field_type) == dict:
+    elif isinstance(field_type, dict):
         key, value = field_type.items()[0]
         return_key = __substitute_class_refs(field_name=field_name, required=required, field_type=key)
         return_value = __substitute_class_refs(field_name=field_name, required=required, field_type=value)
         return {return_key: return_value}
-    elif type(field_type) == str:
+    elif isinstance(field_type, str):
         this_module_name = ""
         this_class_name = ""
         try:
@@ -118,7 +122,7 @@ def __substitute_class_refs(tinymodel, field_name, required, field_type):
                 warnings.warn("Tried to access non-existent class " + field_type + " on field " + field_name + " of TinyModel " + str(type(tinymodel)) + "\nThis field will be removed from the model.")
                 tinymodel.REMOVED_FIELDS.append(field_name)
                 return field_type
-        except Exception, e:
+        except Exception as e:
             raise e
     else:
         return field_type

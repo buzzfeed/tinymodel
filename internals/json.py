@@ -1,5 +1,6 @@
 import json as j
 
+
 def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None):
     """
     Generates an instance of a specified type, with a value specified by a passed-in JSON object.
@@ -23,8 +24,8 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
 
     if type_of_value == dict:
         # Use first allowed dict type or user-defined type
-        first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (type(allowed_type) == dict or allowed_type not in tinymodel.SUPPORTED_BUILTINS)]), None)
-        if type(first_usable_type) == dict:
+        first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (isinstance(allowed_type, dict) or allowed_type not in tinymodel.SUPPORTED_BUILTINS)]), None)
+        if isinstance(first_usable_type, dict):
             (key_type, value_type) = first_usable_type.items()[0]
             return tinymodel.SUPPORTED_BUILTINS[dict]['from_json'](key_type, value_type, json_value, this_field_def)
         elif first_usable_type:
@@ -65,6 +66,7 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             # Did not translate to an allowed type. Cast it back to JSON, find the allowed type, and translate to that.
             first_usable_type = next(iter([allowed_type for allowed_type in allowed_types]))
             return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value))
+
 
 def __field_to_json(tinymodel, this_value):
     """
@@ -123,7 +125,7 @@ def from_json(tinymodel, model_as_json, preprocessed=False, do_validation=True, 
         this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.title + "_id", f.title + "_ids"]), None)
         if this_field_def:
             fields_to_set[json_field_name] = tinymodel.__field_from_json(allowed_types=this_field_def.allowed_types, json_value=json_field_value,
-                                                                    this_field_def=this_field_def)
+                                                                         this_field_def=this_field_def)
     return fields_to_set
 
 

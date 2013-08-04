@@ -48,6 +48,6 @@ def random(tinymodel, model_recursion_depth=1):
     for field_def in tinymodel.FIELD_DEFS:
         if field_def.title not in ['id', 'created_at', 'updated_at']:
             setattr(tinymodel, field_def.title, tinymodel.__random_field(this_type=next(iter(field_def.allowed_types)),
-                                                               model_recursion_depth=model_recursion_depth,
-                                                               this_field_def=field_def))
+                                                                         model_recursion_depth=model_recursion_depth,
+                                                                         this_field_def=field_def))
     return tinymodel
