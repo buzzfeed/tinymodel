@@ -1,4 +1,6 @@
-def __validate_field_value(self, this_field, original_value, allowed_types, value):
+from utils import ValidationError
+
+def __validate_field_value(tinymodel, this_field, original_value, allowed_types, value):
     """
     A field-level validation method that checks the value of the field against the field's allowed_types
 
@@ -12,15 +14,15 @@ def __validate_field_value(self, this_field, original_value, allowed_types, valu
 
     valid = False
 
-    if type(value) in self.COLLECTION_TYPES:
+    if type(value) in tinymodel.COLLECTION_TYPES:
         valid_allowed_types = [x for x in allowed_types if isinstance(x, type(value))]
         if valid_allowed_types:
             if value and isinstance(value, dict):
-                key_valid = self.__validate_field_value(this_field, original_value, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
-                value_valid = self.__validate_field_value(this_field, original_value, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
+                key_valid = __validate_field_value(tinymodel, this_field, original_value, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
+                value_valid = __validate_field_value(tinymodel, this_field, original_value, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
                 valid = key_valid and value_valid
             elif value:
-                valid = self.__validate_field_value(this_field, original_value, map(lambda x: iter(x).next(), valid_allowed_types), iter(value).next())
+                valid = __validate_field_value(tinymodel, this_field, original_value, map(lambda x: iter(x).next(), valid_allowed_types), iter(value).next())
             else:
                 # value is an empty collection type, but this is allowed
                 valid = True
@@ -35,7 +37,7 @@ def __validate_field_value(self, this_field, original_value, allowed_types, valu
     return valid
 
 
-def validate(self, prior_errors=[], warning_only=False):
+def validate(tinymodel, prior_errors=[], warning_only=False):
     """
     A model-level validation function which checks the following:
         1) The model contains no fields that are not explicitly defined in the FIELDS array
@@ -49,29 +51,21 @@ def validate(self, prior_errors=[], warning_only=False):
 
     """
     data_validation_errors = []
-    instance_attributes = vars(self).copy()
 
-    native_attributes = self.NATIVE_ATTRIBUTES
+    #Test missing required fields
+    for field_def in tinymodel.FIELD_DEFS:
+        if field_def.required and not [f for f in tinymodel.FIELDS if f.field_def == field_def]:
+            data_validation_errors.append("Missing required field: " + field_def.title)
 
-    for (key, value) in instance_attributes.items():
-        if key in native_attributes:
-            del instance_attributes[key]
-
-    if not instance_attributes:
-        raise ValidationError("Validation Error on " + str(self) + ": Field values do not exist!")
-    if not getattr(self, 'FIELDS', False):
-        raise ValidationError("Validation Error on " + str(self) + ": FIELDS array does not exist!")
-
-    for (title, value) in instance_attributes.items():
-        this_field = next((field for field in self.FIELDS if field.title == title), None)
-        this_field_def = next((field_def for field_def in self.FIELD_DEFS if field_def.title == title), None)
-        if (this_field_def and this_field_def.validate) and (not this_field.is_valid(value)):
-            if not self.__validate_field_value(this_field=this_field, original_value=value, allowed_types=this_field_def.allowed_types, value=value):
-                data_validation_errors.append("Invalid field: " + title + " has type " + str(type(value)) + " but allowed types are " + str(this_field_def.allowed_types))
+    #Test invalid field values
+    for field in tinymodel.FIELDS:
+        if field.field_def.validate and not field.is_valid():
+            if not __validate_field_value(tinymodel, this_field=field, original_value=field.value, allowed_types=field.field_def.allowed_types, value=field.value):
+                data_validation_errors.append("Invalid field: " + field.field_def.title + " has value of type " + str(type(field.value)) + " but allowed types are " + str(field.field_def.allowed_types))
 
     errors = prior_errors + data_validation_errors
     if errors:
         if warning_only:
-            warnings.warn("Validation Errors on " + str(self) + ":\n" + "\n".join(errors))
+            warnings.warn("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
         else:
-            raise ValidationError("Validation Errors on " + str(self) + ":\n" + "\n".join(errors))
+            raise ValidationError("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))

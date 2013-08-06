@@ -8,8 +8,12 @@ from nose.tools import eq_, ok_, assert_raises
 
 from tinymodel import(
     TinyModel,
-    ValidationError,
     FieldDef,
+)
+
+from utils import(
+    ValidationError,
+    ModelException,
 )
 
 
@@ -20,7 +24,7 @@ class MyValidTypeClass(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass
 
     def to_json(self, **kwargs):
@@ -40,7 +44,7 @@ class MyOtherValidTypeClass(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass
 
     def to_json(self, **kwargs):
@@ -88,12 +92,12 @@ class MyValidTestModel(TinyModel):
                   FieldDef(title='my_nested_tuple', required=True, validate=True, allowed_types=[((int,),)]),
                   FieldDef(title='my_nested_set', required=True, validate=True, allowed_types=[set([(datetime,)])]),
                   FieldDef(title='my_multiple_nested_types', required=True, validate=True, allowed_types=[{str: {str: int}}, {str: [[float]]}]),
-                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=["discotech.test.integration.validated_model_test.MyValidTypeClass"]),
-                  FieldDef(title='my_list_custom_type', required=True, validate=True, allowed_types=[["discotech.test.integration.validated_model_test.MyValidTypeClass"]]),
-                  FieldDef(title='my_dict_custom_type', required=False, validate=True, allowed_types=[{"discotech.test.integration.validated_model_test.MyValidTypeClass": "discotech.test.integration.validated_model_test.MyOtherValidTypeClass"}]),
-                  FieldDef(title='my_nested_list_custom_type', required=True, validate=True, allowed_types=[[["discotech.test.integration.validated_model_test.MyValidTypeClass"]]]),
-                  FieldDef(title='my_nested_dict_custom_type', required=True, validate=True, allowed_types=[{str: {str: "discotech.test.integration.validated_model_test.MyValidTypeClass"}}]),
-                  FieldDef(title='my_multiple_custom_types', required=True, validate=True, allowed_types=["discotech.test.integration.validated_model_test.MyValidTypeClass", "discotech.test.integration.validated_model_test.MyOtherValidTypeClass"]),
+                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass"]),
+                  FieldDef(title='my_list_custom_type', required=True, validate=True, allowed_types=[["test.model_internals_test.MyValidTypeClass"]]),
+                  FieldDef(title='my_dict_custom_type', required=False, validate=True, allowed_types=[{"test.model_internals_test.MyValidTypeClass": "test.model_internals_test.MyOtherValidTypeClass"}]),
+                  FieldDef(title='my_nested_list_custom_type', required=True, validate=True, allowed_types=[[["test.model_internals_test.MyValidTypeClass"]]]),
+                  FieldDef(title='my_nested_dict_custom_type', required=True, validate=True, allowed_types=[{str: {str: "test.model_internals_test.MyValidTypeClass"}}]),
+                  FieldDef(title='my_multiple_custom_types', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass", "test.model_internals_test.MyOtherValidTypeClass"]),
                   FieldDef(title='my_alt_custom_type', required=True, validate=True, allowed_types=[MyValidTypeClass]),
                   FieldDef(title='my_decimal_type', required=True, validate=True, allowed_types=[Decimal]),
                   ]
@@ -108,7 +112,7 @@ class MyReferentialModel(TinyModel):
 
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int, long]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str, unicode]),
-                  FieldDef(title='my_custom_type', required=True, validate=False, allowed_types=["discotech.test.integration.validated_model_test.MyValidTestModel"])]
+                  FieldDef(title='my_custom_type', required=True, validate=False, allowed_types=["test.model_internals_test.MyValidTestModel"])]
 
 
 class MySelfReferentialModel(TinyModel):
@@ -120,7 +124,7 @@ class MySelfReferentialModel(TinyModel):
 
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int, long]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str, unicode]),
-                  FieldDef(title='my_custom_type', required=True, validate=False, allowed_types=["discotech.test.integration.validated_model_test.MySelfReferentialModel"])]
+                  FieldDef(title='my_custom_type', required=True, validate=False, allowed_types=["test.model_internals_test.MySelfReferentialModel"])]
 
 
 class MyNonJsonModel(TinyModel):
@@ -226,20 +230,6 @@ class MyInvalidUserDefinedTypeModel(TinyModel):
                   FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=[MyInvalidTypeClass])]
 
 
-class MyOverwrittenSupportedMethodsModel(TinyModel):
-
-    """
-    A class used for testing. This contains an invalid user-defined type, but will still validate because SUPPORTED_METHODS was overwritten
-
-    """
-
-    SUPPORTED_METHODS = []
-
-    FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int]),
-                  FieldDef(title='my_str', required=True, validate=True, allowed_types=[str]),
-                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=[MyInvalidTypeClass])]
-
-
 class MyInvalidContainerTypeModel(TinyModel):
 
     """
@@ -285,7 +275,7 @@ class MyNonExistentClassTypeModel(TinyModel):
 
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str]),
-                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=['discotech.test.integration.validated_model_test.Foo'])]
+                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=['test.model_internals_test.Foo'])]
 
 
 class MyOptionalNonExistentClassTypeModel(TinyModel):
@@ -297,24 +287,12 @@ class MyOptionalNonExistentClassTypeModel(TinyModel):
 
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str]),
-                  FieldDef(title='my_custom_type', required=False, validate=True, allowed_types=['discotech.test.integration.validated_model_test.Foo'])]
+                  FieldDef(title='my_custom_type', required=False, validate=True, allowed_types=['test.model_internals_test.Foo'])]
 
 
 class TinyModelTest(TestCase):
 
     COLLECTION_TYPES = (dict, list, tuple, set)
-
-    def __test_value(self, allowed_types, value):
-        if type(value) in self.COLLECTION_TYPES:
-            valid_allowed_types = [x for x in allowed_types if isinstance(x, type(value))]
-            ok_(valid_allowed_types)
-            if value and isinstance(value, dict):
-                self.__test_value(map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
-                self.__test_value(map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
-            elif value:
-                self.__test_value(map(lambda x: iter(x).next(), valid_allowed_types), iter(value).next())
-        else:
-            ok_(type(value) in allowed_types)
 
     def test_valid_fields_and_data(self):
 
@@ -383,32 +361,15 @@ class TinyModelTest(TestCase):
         my_valid_object = MyValidTestModel(**initial)
         my_valid_object.validate()
 
-        for field_def in my_valid_object.FIELD_DEFS:
-            field = next(field for field in my_valid_object.FIELDS if field.title == field_def.title)
-            self.__test_value(field_def.allowed_types, getattr(my_valid_object, field_def.title))
-            ok_(field.is_valid(getattr(my_valid_object, field.title)))
-
         # test random
         "CREATE RANDOM OBJECT:"
-        my_random_object = MyValidTestModel().random()
+        my_random_object = MyValidTestModel(random=True)
         my_random_object.validate()
-
-        my_random_object.validate()
-
-        for field_def in my_random_object.FIELD_DEFS:
-            field = next(field for field in my_random_object.FIELDS if field.title == field_def.title)
-            self.__test_value(field_def.allowed_types, getattr(my_random_object, field_def.title))
-            ok_(field.is_valid(getattr(my_random_object, field.title)))
 
         # test from_json
         "CREATE OBJECT FROM JSON:"
-        my_object_from_json = MyValidTestModel().from_json(model_as_json=initial_json)
+        my_object_from_json = MyValidTestModel(from_json=initial_json)
         my_object_from_json.validate()
-
-        for field_def in [x for x in my_object_from_json.FIELD_DEFS if x.required]:
-            field = next(field for field in my_object_from_json.FIELDS if field.title == field_def.title)
-            self.__test_value(field_def.allowed_types, getattr(my_object_from_json, field_def.title))
-            ok_(field.is_valid(getattr(my_object_from_json, field.title)))
 
         # test to_json
         my_json_obj = my_object_from_json.to_json()
@@ -419,7 +380,7 @@ class TinyModelTest(TestCase):
                    'my_str': 'two'
                    }
 
-        my_object = MyBadButUnvalidatedTypeModel(**initial)
+        my_object = MyReferentialModel(**initial)
 
         assert_raises(ValidationError, my_object.validate)
 
@@ -427,43 +388,40 @@ class TinyModelTest(TestCase):
 
         initial = {'my_int': 1,
                    'my_str': 'two',
-                   'my_custom_type': MyValidTestModel().random()
+                   'my_custom_type': MyValidTestModel(random=True)
                    }
 
         my_object = MyReferentialModel(**initial)
-        my_object.asdd = 'asdd'
 
-        assert_raises(ValidationError, my_object.validate)
+        assert_raises(ModelException, setattr, my_object, 'foo', 'bar')
 
     def test_data_change_invalidates_field(self):
 
         initial = {'my_int': 1,
                    'my_str': 'two',
-                   'my_custom_type': MyValidTestModel().random()
+                   'my_custom_type': MyValidTestModel(random=True)
                    }
 
         my_object = MyReferentialModel(**initial)
         my_object.validate()
 
         for field in my_object.FIELDS:
-            field_def = next(field_def for field_def in my_object.FIELD_DEFS if field_def.title == field.title)
-            if field_def.validate:
-                ok_(field.is_valid(getattr(my_object, field.title)))
+            if field.field_def.validate:
+                ok_(field.is_valid())
 
         my_object.my_str = 'three'
         for field in my_object.FIELDS:
-            field_def = next(field_def for field_def in my_object.FIELD_DEFS if field_def.title == field.title)
-            if field_def.validate:
-                if field.title == 'my_str':
-                    ok_(not field.is_valid(getattr(my_object, field.title)))
+            if field.field_def.validate:
+                if field.field_def.title == 'my_str':
+                    ok_(not field.is_valid())
                 else:
-                    ok_(field.is_valid(getattr(my_object, field.title)))
+                    ok_(field.is_valid())
 
     def test_invalid_data(self):
 
         initial = {'my_int': 'not_an_int',
                    'my_str': 'two',
-                   'my_custom_type': MyValidTestModel().random()
+                   'my_custom_type': MyValidTestModel(random=True),
                    }
 
         non_json_initial = {'my_int': 1,
@@ -488,63 +446,20 @@ class TinyModelTest(TestCase):
 
         assert_raises(ValidationError, my_object.validate)
 
-        # test various JSON data warnings
-        with warnings.catch_warnings(record=True) as w:
-            my_object = MyReferentialModel().from_json(model_as_json=unsupported_object_json)
-            ok_(w)
-            ok_("JSON 'object' type not supported" in str(w[0].message))
-
-        with warnings.catch_warnings(record=True) as w:
-            my_object = MyReferentialModel().from_json(model_as_json=unsupported_list_json)
-            ok_(w)
-            ok_("JSON 'array' type not supported" in str(w[0].message))
-
-        with warnings.catch_warnings(record=True) as w:
-            my_object = MyReferentialModel().from_json(model_as_json=unsupported_base_type_json)
-            ok_(w)
-            ok_("JSON 'string | number | true | false | null' type not supported" in str(w[0].message))
-
-        with warnings.catch_warnings(record=True) as w:
-            my_json = my_non_json_object.to_json(warning_only=True)
-            ok_(w)
-            ok_("could not be translated to a valid JSON object" in str(w[0].message))
-
         # test JSON data Exception
-        assert_raises(ValidationError, MyReferentialModel().from_json, **{'model_as_json': unsupported_object_json, 'warning_only': False})
+        assert_raises(ModelException, MyReferentialModel, **{'from_json': unsupported_object_json})
 
-        assert_raises(Exception, my_non_json_object.to_json, **{'warning_only': False})
-
-        # test no exceptions
-        my_object = MyReferentialModel().from_json(model_as_json=unsupported_object_json,
-                                                   do_validation=False,
-                                                   warning_only=False)
-
-        # test field overrides
-        new_custom_field_def = FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=[str])
-        kwargs = {'model_as_json': unsupported_base_type_json, 'warning_only': False, 'field_overrides': [new_custom_field_def]}
-        MyReferentialModel().from_json(**kwargs)
+        assert_raises(ModelException, my_non_json_object.to_json)
 
     def test_referential_field(self):
 
-        my_valid_object = MyReferentialModel().random()
-        for field in my_valid_object.FIELD_DEFS:
-            if field.validate:
-                if field.title == 'my_custom_type':
-                    recursed_object = getattr(my_valid_object, field.title)
-                    for recursed_object_field in recursed_object.FIELD_DEFS:
-                        if recursed_object_field.validate:
-                            self.__test_value(recursed_object_field.allowed_types, getattr(recursed_object, recursed_object_field.title))
-                else:
-                    self.__test_value(field.allowed_types, getattr(my_valid_object, field.title))
+        my_valid_object = MyReferentialModel(random=True)
+        my_valid_object.validate()
 
     def test_cyclical_reference(self):
 
-        my_valid_object = MySelfReferentialModel().random(model_recursion_depth=0)
-        for field in my_valid_object.FIELD_DEFS:
-            if field.title == 'my_custom_type':
-                ok_("This is a dummy value" in getattr(my_valid_object, field.title))
-            else:
-                self.__test_value(field.allowed_types, getattr(my_valid_object, field.title))
+        my_valid_object = MySelfReferentialModel(random=True)
+        my_valid_object.validate()
 
     def test_bad_but_unvalidated_type(self):
 
@@ -554,21 +469,7 @@ class TinyModelTest(TestCase):
                    }
 
         my_valid_object = MyBadButUnvalidatedTypeModel(**initial)
-
-        for field in my_valid_object.FIELD_DEFS:
-            self.__test_value(field.allowed_types, getattr(my_valid_object, field.title))
-
-    def test_supported_methods_overwrite(self):
-
-        initial = {'my_int': 1,
-                   'my_str': 'two',
-                   'my_custom_type': MyInvalidTypeClass()
-                   }
-
-        my_valid_object = MyOverwrittenSupportedMethodsModel(**initial)
-
-        for field in my_valid_object.FIELD_DEFS:
-            self.__test_value(field.allowed_types, getattr(my_valid_object, field.title))
+        my_valid_object.validate()
 
     def test_missing_fields(self):
 
@@ -659,21 +560,6 @@ class TinyModelTest(TestCase):
 
         assert_raises(Exception, MyNonExistentModuleTypeModel, **initial)
 
-    def test_non_existent_type_module_warning(self):
-
-        initial = {'my_int': 1,
-                   'my_str': 'two',
-                   'my_custom_type': 'baz'
-                   }
-
-        with warnings.catch_warnings(record=True) as w:
-            my_valid_object = MyOptionalNonExistentModuleTypeModel(**initial)
-            ok_(w)
-            ok_("Tried to import non-existent module" in str(w[0].message))
-            for (key, value) in initial.iteritems():
-                ok_(hasattr(my_valid_object, key))
-                eq_(value, getattr(my_valid_object, key))
-
     def test_non_existent_type_class_error(self):
 
         initial = {'my_int': 1,
@@ -682,18 +568,3 @@ class TinyModelTest(TestCase):
                    }
 
         assert_raises(Exception, MyNonExistentClassTypeModel, **initial)
-
-    def test_non_existent_type_class_warning(self):
-
-        initial = {'my_int': 1,
-                   'my_str': 'two',
-                   'my_custom_type': 'baz'
-                   }
-
-        with warnings.catch_warnings(record=True) as w:
-            my_valid_object = MyOptionalNonExistentClassTypeModel(**initial)
-            ok_(w)
-            ok_("Tried to access non-existent class" in str(w[0].message))
-            for (key, value) in initial.iteritems():
-                ok_(hasattr(my_valid_object, key))
-                eq_(value, getattr(my_valid_object, key))

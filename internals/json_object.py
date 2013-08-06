@@ -1,5 +1,7 @@
 import json as j
 
+from utils import ModelException
+
 
 def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None):
     """
@@ -27,37 +29,34 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
         first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (isinstance(allowed_type, dict) or allowed_type not in tinymodel.SUPPORTED_BUILTINS)]), None)
         if isinstance(first_usable_type, dict):
             (key_type, value_type) = first_usable_type.items()[0]
-            return tinymodel.SUPPORTED_BUILTINS[dict]['from_json'](key_type, value_type, json_value, this_field_def)
+            return tinymodel.SUPPORTED_BUILTINS[dict]['from_json'](tinymodel, key_type, value_type, json_value, this_field_def)
         elif first_usable_type:
             # Assume we are dealing with a valid user-defined type
             return first_usable_type().from_json(model_as_json=json_value, preprocessed=True)
         else:
-            tinymodel.JSON_FAILURES.append("from_json translation error in " + this_field_def.title + " field: JSON 'object' type not supported by FieldDef.allowed_types")
-            return None
+            raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'object' type not supported by FieldDef.allowed_types")
     elif type_of_value in tinymodel.COLLECTION_TYPES:
         # Use first allowed iterable type
         first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (type(allowed_type) in (list, tuple, set))]), None)
         if first_usable_type:
             element_type = iter(first_usable_type).next()
-            return tinymodel.SUPPORTED_BUILTINS[type(first_usable_type)]['from_json'](element_type, json_value, this_field_def)
+            return tinymodel.SUPPORTED_BUILTINS[type(first_usable_type)]['from_json'](tinymodel, element_type, json_value, this_field_def)
         else:
-            tinymodel.JSON_FAILURES.append("from_json translation error in " + this_field_def.title + " field: JSON 'array' type not supported by FieldDef.allowed_types")
-            return None
+            raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'array' type not supported by FieldDef.allowed_types")
     elif type_of_value == unicode:
         # Use first allowed non-collection type
-        first_usable_type = next(iter(filter(lambda t: (t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES)) or issubclass(t, TinyModel), allowed_types)), None)
+        first_usable_type = next(iter(filter(lambda t: (t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES)) or issubclass(t, tinymodel.__class__), allowed_types)), None)
         if first_usable_type:
-            if issubclass(first_usable_type, TinyModel):
+            if issubclass(first_usable_type, tinymodel.__class__):
                 try:
-                    return first_usable_type().from_json(json_value, do_validation=False)
+                    return first_usable_type(from_json=json_value)
                 except ValueError:
-                    tinymodel.JSON_FAILURES.append("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by ModelField.allowed_types")
+                    raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by ModelField.allowed_types")
                     return None
             json_value = '"' + json_value + '"'
             return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](json_value)
         else:
-            tinymodel.JSON_FAILURES.append("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by FieldDef.allowed_types")
-            return None
+            raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by FieldDef.allowed_types")
     else:
         # No further translation necessary, but did we translate to an allowed type?
         if type_of_value in allowed_types:
@@ -83,13 +82,16 @@ def __field_to_json(tinymodel, this_value):
     type_of_value = type(this_value)
 
     if type_of_value in tinymodel.SUPPORTED_BUILTINS:
-        return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](this_value)
+        if type_of_value in tinymodel.COLLECTION_TYPES:
+            return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](tinymodel, this_value)
+        else:
+            return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](this_value)
     else:
         # Assume we are dealing with a valid user-defined type
         return this_value.to_json()
 
 
-def from_json(tinymodel, model_as_json, preprocessed=False, do_validation=True, warning_only=True):
+def from_json(tinymodel, model_as_json, preprocessed=False):
     """
     Creates an object from its JSON representation
     Simultaneously iterates over the FIELD_DEFS attribute and the passed-in JSON representation
@@ -105,13 +107,10 @@ def from_json(tinymodel, model_as_json, preprocessed=False, do_validation=True, 
 
     :param str model_as_json: A representation of the model in JSON format
     :param bool preprocessed: A flag indicating whether model_as_json has already been through a JSON preprocessor
-    :param bool do_validation: A flag indicating whether the resulting model should be validated before returning
-    :param bool warning_only: If True, any validation errors produce only warnings instead of Exceptions.
 
     :rtype dict: A dict of keys and values for the fields to set.
 
     """
-    tinymodel.JSON_FAILURES = []
     json_fields = {}
     fields_to_set = {}
 
@@ -124,12 +123,14 @@ def from_json(tinymodel, model_as_json, preprocessed=False, do_validation=True, 
     for (json_field_name, json_field_value) in json_fields.items():
         this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.title + "_id", f.title + "_ids"]), None)
         if this_field_def:
-            fields_to_set[json_field_name] = tinymodel.__field_from_json(allowed_types=this_field_def.allowed_types, json_value=json_field_value,
-                                                                         this_field_def=this_field_def)
+            fields_to_set[json_field_name] = __field_from_json(tinymodel,
+                                                               allowed_types=this_field_def.allowed_types,
+                                                               json_value=json_field_value,
+                                                               this_field_def=this_field_def)
     return fields_to_set
 
 
-def to_json(tinymodel, do_validation=True, warning_only=True, return_dict=False):
+def to_json(tinymodel, return_dict=False):
     """
     Creates a JSON representation of a model
     Iterates over the FIELD_DEFS attribute to translate each field value into its corresponding JSON representation.
@@ -137,30 +138,24 @@ def to_json(tinymodel, do_validation=True, warning_only=True, return_dict=False)
     Please note that JSON supports ONLY STRINGS AS DICT KEYS!
     Dict-type fields with key types other than str are not guaranteed to work with this method.
 
-    :param bool do_validation: A flag indicating whether the resulting model should be validated before returning
-    :param bool warning_only: If True, any validation errors produce only warnings instead of Exceptions.
-
     :rtype str: A JSON-formatted str representation of this model
 
     """
     json_fields = {}
     object_as_json = ''
-    if do_validation:
-        tinymodel.validate(warning_only=warning_only)
+    tinymodel.validate()
+
     for field in tinymodel.FIELDS:
         try:
-            json_fields.update({field.title: tinymodel.__field_to_json(this_value=getattr(tinymodel, field.title))})
+            json_fields.update({field.field_def.title: __field_to_json(tinymodel, this_value=getattr(tinymodel, field.field_def.title))})
         except AttributeError:
-            pass
+            raise
     object_as_json = '{' + ','.join([('"' + key + '": ' + value) for (key, value) in json_fields.items()]) + '}'
 
     try:
         object_as_dict = j.loads(object_as_json)
     except:
-        if warning_only:
-            warnings.warn(str(tinymodel) + " could not be translated to a valid JSON object")
-        else:
-            raise Exception(str(tinymodel) + " could not be translated to a valid JSON object")
+        raise ModelException(str(tinymodel) + " could not be translated to a valid JSON object")
     else:
         if return_dict:
             return object_as_dict

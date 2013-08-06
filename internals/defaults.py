@@ -1,23 +1,19 @@
 import pytz
 import random as r
 import string as s
+import json as j
 
 from decimal import Decimal
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
 
-COLLECTION_TYPES = (dict, list, tuple, set)
-NATIVE_ATTRIBUTES = ('NATIVE_ATTRIBUTES',
-                     'FIELD_DEFS',
-                     'FIELDS',
-                     'COLLECTION_TYPES',
-                     'SUPPORTED_METHODS',
-                     'SUPPORTED_BUILTINS',
-                     'REMOVED_FIELDS',
-                     'VALIDATION_FAILURES',
-                     'VALIDATED_CLASSES',
-                     'JSON_FAILURES')
+from internals.random_object import __random_field
+from internals.json_object import(
+    __field_to_json,
+    __field_from_json,
+)
 
+COLLECTION_TYPES = (dict, list, tuple, set)
 SUPPORTED_METHODS = ['to_json', 'from_json', 'random']
 
 SUPPORTED_BUILTINS = {
@@ -67,23 +63,23 @@ SUPPORTED_BUILTINS = {
         'random': lambda: (datetime.utcnow() - timedelta(seconds=r.randrange(2592000))).replace(tzinfo=pytz.utc),
     },
     dict: {
-        'to_json': lambda this_value: '{' + ','.join([self.__field_to_json(key) + ': ' + self.__field_to_json(value) for (key, value) in this_value.items()]) + '}',
-        'from_json': lambda key_type, value_type, this_value, this_field_def: {self.__field_from_json([key_type], key, this_field_def): self.__field_from_json([value_type], value, this_field_def) for (key, value) in this_value.items()},
-        'random': lambda key_type, value_type, model_recursion_depth, this_field_def: {self.__random_field(key_type, model_recursion_depth, this_field_def): self.__random_field(value_type, model_recursion_depth, this_field_def) for x in range(r.randint(0, 5))},
+        'to_json': lambda tinymodel, this_value: '{' + ','.join([__field_to_json(tinymodel, key) + ': ' + __field_to_json(tinymodel, value) for (key, value) in this_value.items()]) + '}',
+        'from_json': lambda tinymodel, key_type, value_type, this_value, this_field_def: {__field_from_json(tinymodel, [key_type], key, this_field_def): __field_from_json(tinymodel, [value_type], value, this_field_def) for (key, value) in this_value.items()},
+        'random': lambda tinymodel, key_type, value_type, model_recursion_depth, this_field_def: {__random_field(tinymodel, key_type, model_recursion_depth, this_field_def): __random_field(tinymodel, value_type, model_recursion_depth, this_field_def) for x in range(r.randint(0, 5))},
     },
     list: {
-        'to_json': lambda this_value: '[' + ','.join([self.__field_to_json(element) for element in this_value]) + ']',
-        'from_json': lambda element_type, this_value, this_field_def: [self.__field_from_json([element_type], element, this_field_def) for element in this_value],
-        'random': lambda element_type, model_recursion_depth, this_field_def: [self.__random_field(element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))]
+        'to_json': lambda tinymodel, this_value: '[' + ','.join([__field_to_json(tinymodel, element) for element in this_value]) + ']',
+        'from_json': lambda tinymodel, element_type, this_value, this_field_def: [__field_from_json(tinymodel, [element_type], element, this_field_def) for element in this_value],
+        'random': lambda tinymodel, element_type, model_recursion_depth, this_field_def: [__random_field(tinymodel, element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))]
     },
     tuple: {
-        'to_json': lambda this_value: '[' + ','.join([self.__field_to_json(element) for element in this_value]) + ']',
-        'from_json': lambda element_type, this_value, this_field_def: tuple([self.__field_from_json([element_type], element, this_field_def) for element in this_value]),
-        'random': lambda element_type, model_recursion_depth, this_field_def: tuple([self.__random_field(element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))])
+        'to_json': lambda tinymodel, this_value: '[' + ','.join([__field_to_json(tinymodel, element) for element in this_value]) + ']',
+        'from_json': lambda tinymodel, element_type, this_value, this_field_def: tuple([__field_from_json(tinymodel, [element_type], element, this_field_def) for element in this_value]),
+        'random': lambda tinymodel, element_type, model_recursion_depth, this_field_def: tuple([__random_field(tinymodel, element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))])
     },
     set: {
-        'to_json': lambda this_value: '[' + ','.join([self.__field_to_json(element) for element in this_value]) + ']',
-        'from_json': lambda element_type, this_value, this_field_def: set([self.__field_from_json([element_type], element, this_field_def) for element in this_value]),
-        'random': lambda element_type, model_recursion_depth, this_field_def: set([self.__random_field(element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))])
+        'to_json': lambda tinymodel, this_value: '[' + ','.join([__field_to_json(tinymodel, element) for element in this_value]) + ']',
+        'from_json': lambda tinymodel, element_type, this_value, this_field_def: set([__field_from_json(tinymodel, [element_type], element, this_field_def) for element in this_value]),
+        'random': lambda tinymodel, element_type, model_recursion_depth, this_field_def: set([__random_field(tinymodel, element_type, model_recursion_depth, this_field_def) for x in range(r.randint(1, 5))])
     },
 }

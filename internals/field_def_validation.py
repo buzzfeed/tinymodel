@@ -3,6 +3,8 @@ import collections
 
 from importlib import import_module
 
+from utils import ValidationError
+
 
 def validate_builtin_method_support(tinymodel):
     """
@@ -34,7 +36,7 @@ def validate_field_types(tinymodel):
             if not field.title:
                 raise ValidationError("Field validation failed on TinyModel of class " + str(type(tinymodel)) + ". Field name cannot be empty!")
             for index, field_type in enumerate(field.allowed_types):
-                field.allowed_types[index] = __substitute_class_refs(field_name=field.title, required=field.required, field_type=field_type)
+                field.allowed_types[index] = __substitute_class_refs(tinymodel, field_name=field.title, required=field.required, field_type=field_type)
 
         new_fields_list = []
         for key, val in enumerate(tinymodel.FIELD_DEFS):
@@ -44,7 +46,7 @@ def validate_field_types(tinymodel):
         for field_def in tinymodel.FIELD_DEFS:
             for field_type in field_def.allowed_types:
                 if field_def.validate:
-                    __validate_type(field_name=field_def.title, field_type=field_type)
+                    __validate_type(tinymodel, field_name=field_def.title, field_type=field_type)
         if tinymodel.VALIDATION_FAILURES:
             raise ValidationError("Field types validation failed on TinyModel of class " + str(type(tinymodel)) + "\nInvalid types:\n" + "\n".join(tinymodel.VALIDATION_FAILURES))
     else:
@@ -63,11 +65,11 @@ def __validate_type(tinymodel, field_name, field_type):
 
     if type(field_type) in (list, tuple, set):
         for element in field_type:
-            __validate_type(field_name=field_name, field_type=element)
+            __validate_type(tinymodel, field_name=field_name, field_type=element)
     elif isinstance(field_type, dict):
         for key, value in field_type.iteritems():
-            __validate_type(field_name=field_name, field_type=key)
-            __validate_type(field_name=field_name, field_type=value)
+            __validate_type(tinymodel, field_name=field_name, field_type=key)
+            __validate_type(tinymodel, field_name=field_name, field_type=value)
     elif isinstance(field_type, type):
         if field_type not in tinymodel.SUPPORTED_BUILTINS:
             for required_method in tinymodel.SUPPORTED_METHODS:
@@ -91,15 +93,15 @@ def __substitute_class_refs(tinymodel, field_name, required, field_type):
     if type(field_type) in tinymodel.COLLECTION_TYPES and len(field_type) > 1:
         raise Exception(str(type(field_type)) + " field types can only have one element: " + field_name + " on TinyModel " + str(type(tinymodel)))
     elif isinstance(field_type, list):
-        return [__substitute_class_refs(field_name=field_name, required=required, field_type=field_type[0])]
+        return [__substitute_class_refs(tinymodel, field_name=field_name, required=required, field_type=field_type[0])]
     elif isinstance(field_type, tuple):
-        return tuple([__substitute_class_refs(field_name=field_name, required=required, field_type=field_type[0])])
+        return tuple([__substitute_class_refs(tinymodel, field_name=field_name, required=required, field_type=field_type[0])])
     elif isinstance(field_type, set):
-        return set([__substitute_class_refs(field_name=field_name, required=required, field_type=iter(field_type).next())])
+        return set([__substitute_class_refs(tinymodel, field_name=field_name, required=required, field_type=iter(field_type).next())])
     elif isinstance(field_type, dict):
         key, value = field_type.items()[0]
-        return_key = __substitute_class_refs(field_name=field_name, required=required, field_type=key)
-        return_value = __substitute_class_refs(field_name=field_name, required=required, field_type=value)
+        return_key = __substitute_class_refs(tinymodel, field_name=field_name, required=required, field_type=key)
+        return_value = __substitute_class_refs(tinymodel, field_name=field_name, required=required, field_type=value)
         return {return_key: return_value}
     elif isinstance(field_type, str):
         this_module_name = ""

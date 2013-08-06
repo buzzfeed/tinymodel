@@ -19,16 +19,16 @@ def __random_field(tinymodel, this_type, model_recursion_depth=1, this_field_def
         return r.choice(this_field_def.choices)[0]
     elif type_of_type in (list, tuple, set):
         element_type = iter(this_type).next()
-        return tinymodel.SUPPORTED_BUILTINS[type_of_type]['random'](element_type, model_recursion_depth, this_field_def)
+        return tinymodel.SUPPORTED_BUILTINS[type_of_type]['random'](tinymodel, element_type, model_recursion_depth, this_field_def)
     elif type_of_type == dict:
         (key_type, value_type) = this_type.items()[0]
-        return tinymodel.SUPPORTED_BUILTINS[dict]['random'](key_type, value_type, model_recursion_depth, this_field_def)
+        return tinymodel.SUPPORTED_BUILTINS[dict]['random'](tinymodel, key_type, value_type, model_recursion_depth, this_field_def)
     elif this_type in tinymodel.SUPPORTED_BUILTINS:
         return tinymodel.SUPPORTED_BUILTINS[this_type]['random']()
     else:
         if model_recursion_depth > 0:
             # Assume we are dealing with a valid user-defined type
-            return this_type().random(model_recursion_depth=(model_recursion_depth - 1))
+            return this_type(random=True, model_recursion_depth=(model_recursion_depth - 1))
         else:
             return("This is a dummy value in place of an object of type " + str(this_type) +
                    ". If this is not what you were expecting, then you need to pass a higher model_recursion_depth.")
@@ -41,13 +41,15 @@ def random(tinymodel, model_recursion_depth=1):
 
     :param int model_recursion_depth: The number of levels to recurse when a FIELD entry references another TinyModel class.
                                       We require this in order to avoid infinite recursion on cyclical references.
-    :rtype TinyModel: An instance of the TinyModel with random values assigned to all fields.
+    :rtype dict: A dict of the attributes to set
 
     """
+    attrs_to_set = {}
 
     for field_def in tinymodel.FIELD_DEFS:
         if field_def.title not in ['id', 'created_at', 'updated_at']:
-            setattr(tinymodel, field_def.title, tinymodel.__random_field(this_type=next(iter(field_def.allowed_types)),
-                                                                         model_recursion_depth=model_recursion_depth,
-                                                                         this_field_def=field_def))
-    return tinymodel
+            attrs_to_set[field_def.title] =  __random_field(tinymodel,
+                                                            this_type=next(iter(field_def.allowed_types)),
+                                                            model_recursion_depth=model_recursion_depth,
+                                                            this_field_def=field_def)
+    return attrs_to_set

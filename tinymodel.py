@@ -1,18 +1,12 @@
 from internals import(
     defaults,
     field_def_validation,
-    json,
+    json_object,
+    random_object,
     validation,
-    random,
 )
 
-
-class ModelException(Exception):
-    pass
-
-
-class ValidationError(Exception):
-    pass
+from utils import ModelException
 
 
 class FieldDef(object):
@@ -98,7 +92,7 @@ class Field(object):
     def __repr__(self):
         return unicode('<tinymodel.Field "%s">' % self.title)
 
-    def is_valid(self, current_value):
+    def is_valid(self):
         """
         Determines whether or not a field is valid, given the current value of the field.
         Fields start as invalid, and previously validated fields become invalidated when their values change.
@@ -107,7 +101,7 @@ class Field(object):
         :rtype bool: Flag indicating whether the field is currently valid or not.
         """
 
-        return bool(self.was_validated and current_value == self.last_validated_value)
+        return bool(self.was_validated and self.value == self.last_validated_value)
 
 
 class TinyModel(object):
@@ -125,9 +119,8 @@ class TinyModel(object):
     It's recommended that any new SUPPORTED_METHODS that you define accept **kwargs in the method definition, to avoid parameter errors.
 
     """
-    COLLECTION_TYPES = defaults.COLLECTION_TYPES
     VALIDATED_CLASSES = []
-    NATIVE_ATTRIBUTES = defaults.NATIVE_ATTRIBUTES
+    COLLECTION_TYPES = defaults.COLLECTION_TYPES
 
     def __setattr__(self, name, value):
         """
@@ -142,7 +135,7 @@ class TinyModel(object):
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
         # recalculate defaults
-        for field_def in filter(lambda f: f.default for f in self.FIELD_DEFS):
+        for field_def in filter(lambda f: f.default, self.FIELD_DEFS):
             value = field_def.default(self)
             default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
             if not default_field:
@@ -155,27 +148,29 @@ class TinyModel(object):
         Overrides __getattr__ to get the field value
 
         """
-        this_field = next((f for f in self.FIELDS if f.field_def.title), None)
+        self_fields = super(TinyModel, self).__getattribute__('FIELDS')
+        this_field = next((f for f in self_fields if f.field_def.title == name), None)
         if this_field:
             return this_field.value
         else:
-            raise AttributeError
+            raise AttributeError(str(type(self)) + " has no field " + name)
 
-    def __init__(self, from_json=False, from_foreign_model=False, random=False, **kwargs):
+    def __init__(self, from_json=False, from_foreign_model=False, random=False, model_recursion_depth=1, **kwargs):
         """
         Checks validity of type definitions and initializes the Model
 
         :param str from_json: A json representation of the model, to initialize from json if desired
         :param object from_foreign_model: Another type of model class (Django model for example) that has attributes whose titles match the keys of FIELD_DEFS.
         :param bool random: A flag indicating whether the model properties should be initialized to random values.
+        :param int model_recursion_depth: Used in conjunction with random. Determines how many times to recurse when generating parents and children.
         :param objects **kwargs: The initial values of each field can be passed in as a keyword parameter.
                                Values are not validated until you call Model.validate()
 
         """
-        self.VALIDATION_FAILURES = []
-        self.JSON_FAILURES = []
-        self.FIELDS = []
-        self.REMOVED_FIELDS = []
+        super(TinyModel, self).__setattr__('FIELDS', [])
+        super(TinyModel, self).__setattr__('VALIDATION_FAILURES', [])
+        super(TinyModel, self).__setattr__('JSON_FAILURES', [])
+        super(TinyModel, self).__setattr__('REMOVED_FIELDS', [])
 
         def __add_dependency_field(title, value, relationship):
             """
@@ -200,21 +195,23 @@ class TinyModel(object):
 
         # set supported methods and builtins
         if not getattr(self, 'SUPPORTED_METHODS', False):
-            self.SUPPORTED_METHODS = defaults.SUPPORTED_METHODS
+            super(TinyModel, self).__setattr__('SUPPORTED_METHODS', defaults.SUPPORTED_METHODS)
         if not getattr(self, 'SUPPORTED_BUILTINS', False):
-            self.SUPPORTED_BUILTINS = defaults.SUPPORTED_BUILTINS
+            super(TinyModel, self).__setattr__('SUPPORTED_BUILTINS', defaults.SUPPORTED_BUILTINS)
 
         # validate model definition if it hasn't been already
         if type(self) not in self.VALIDATED_CLASSES:
-            field_def_validation.validate_builtin_method_support()
-            field_def_validation.validate_field_types()
+            field_def_validation.validate_builtin_method_support(self)
+            field_def_validation.validate_field_types(self)
             self.VALIDATED_CLASSES.append(type(self))
 
         # set initial values
         if from_json:
-            initial_attributes = __from_json(self, from_json)
+            initial_attributes = self.__from_json(from_json)
         elif from_foreign_model:
-            initial_attributes = __from_foreign_model(self, from_foreign_model)
+            initial_attributes = self.__from_foreign_model(from_foreign_model)
+        elif random:
+            initial_attributes = self.__from_random(model_recursion_depth=model_recursion_depth)
         else:
             initial_attributes = kwargs
 
@@ -225,26 +222,29 @@ class TinyModel(object):
             if this_field_def:
                 self.FIELDS.append(Field(field_def=this_field_def, value=value))
                 value_id = getattr(value, 'id', None)
-                value_ids = [getattr(val, 'id', None) for val in value]
+                try:
+                    value_ids = [getattr(val, 'id', None) for val in value]
+                except TypeError:
+                    value_ids = [None]
                 if this_field_def.relationship == 'has_one' and value_id is not None:
                     __add_dependency_field(key, value_id, 'has_one')
                 elif this_field_def.relationship == 'has_many' and all(value_id is not None for value_id in value_ids):
                     __add_dependency_field(key, value_ids, 'has_many')
             else:
-                raise ModelException("Tried to set non-existent field " + str(name) + " on model " + str(type(self)) + "\n" +
+                raise ModelException("Tried to set non-existent field " + str(key) + " on model " + str(type(self)) + "\n" +
                                      "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
-    def __from_json(self, model_as_json, preprocessed=False, do_validation=True, warning_only=True):
-        return json.from_json(tinymodel, model_as_json, preprocessed=prepreocessed, do_validation=do_validation, warning_only=warning_only)
+    def __from_json(self, model_as_json, preprocessed=False):
+        return json_object.from_json(self, model_as_json, preprocessed=preprocessed)
 
     def __from_foreign_model(self, foreign_model):
         return foreign_model.from_foreign_model(self, foreign_model)
 
-    def to_json(self, do_validation=True, warning_only=True, return_dict=False):
-        return json.to_json(self, do_validation=do_validation, warning_only=warning_only, return_dict=return_dict)
+    def __from_random(self, model_recursion_depth=1):
+        return random_object.random(self, model_recursion_depth=model_recursion_depth)
+
+    def to_json(self, return_dict=False):
+        return json_object.to_json(self, return_dict=return_dict)
 
     def validate(self, prior_errors=[], warning_only=False):
         return validation.validate(self, prior_errors=[], warning_only=False)
-
-    def random(self, model_recursion_depth=1):
-        return random.random(self, model_recursion_depth=model_recursion_depth)
