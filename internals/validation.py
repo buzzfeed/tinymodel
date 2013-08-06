@@ -1,5 +1,6 @@
 from utils import ValidationError
 
+
 def __validate_field_value(tinymodel, this_field, original_value, allowed_types, value):
     """
     A field-level validation method that checks the value of the field against the field's allowed_types
@@ -52,12 +53,12 @@ def validate(tinymodel, prior_errors=[], warning_only=False):
     """
     data_validation_errors = []
 
-    #Test missing required fields
+    # Test missing required fields
     for field_def in tinymodel.FIELD_DEFS:
         if field_def.required and not [f for f in tinymodel.FIELDS if f.field_def == field_def]:
             data_validation_errors.append("Missing required field: " + field_def.title)
 
-    #Test invalid field values
+    # Test invalid field values
     for field in tinymodel.FIELDS:
         if field.field_def.validate and not field.is_valid():
             if not __validate_field_value(tinymodel, this_field=field, original_value=field.value, allowed_types=field.field_def.allowed_types, value=field.value):
