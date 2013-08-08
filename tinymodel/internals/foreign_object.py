@@ -1,4 +1,4 @@
-from utils import UNDEFINED
+from tinymodel.utils import UNDEFINED
 
 
 def from_foreign_model(tinymodel, foreign_model):

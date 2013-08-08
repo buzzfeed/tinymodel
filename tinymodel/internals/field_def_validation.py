@@ -3,7 +3,7 @@ import collections
 
 from importlib import import_module
 
-from utils import ValidationError
+from tinymodel.utils import ValidationError
 
 
 def validate_builtin_method_support(tinymodel):

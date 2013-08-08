@@ -1,4 +1,4 @@
-from utils import ValidationError
+from tinymodel.utils import ValidationError
 
 
 def __validate_field_value(tinymodel, this_field, original_value, allowed_types, value):

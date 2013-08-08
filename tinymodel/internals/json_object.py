@@ -1,6 +1,6 @@
 import json as j
 
-from utils import ModelException
+from tinymodel.utils import ModelException
 
 
 def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None):

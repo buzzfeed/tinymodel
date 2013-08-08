@@ -1,4 +1,4 @@
-from internals import(
+from tinymodel.internals import(
     defaults,
     field_def_validation,
     json_object,

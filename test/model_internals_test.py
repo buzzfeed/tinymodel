@@ -11,7 +11,7 @@ from tinymodel import(
     FieldDef,
 )
 
-from utils import(
+from tinymodel.utils import(
     ValidationError,
     ModelException,
 )

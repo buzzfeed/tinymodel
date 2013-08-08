@@ -7,8 +7,8 @@ from decimal import Decimal
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
 
-from internals.random_object import __random_field
-from internals.json_object import(
+from tinymodel.internals.random_object import __random_field
+from tinymodel.internals.json_object import(
     __field_to_json,
     __field_from_json,
 )
