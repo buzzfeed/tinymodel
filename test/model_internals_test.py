@@ -319,7 +319,7 @@ class TinyModelTest(TestCase):
 
         initial = {'my_int': 1,
                    'my_str': 'lol_butts',
-                   'my_bool': False,
+                   'my_bool': True,
                    'my_float': 1.2345,
                    'my_datetime': datetime.today(),
                    'my_none': None,
@@ -386,7 +386,6 @@ class TinyModelTest(TestCase):
 
         # test from_foreign_model
         my_object_from_foreign_model = MyValidTestModel(from_foreign_model=initial_foreign_model)
-        print my_object_from_foreign_model
         my_object_from_foreign_model.validate()
 
         # test to_json
