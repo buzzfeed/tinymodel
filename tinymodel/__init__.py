@@ -1,8 +1,11 @@
+from pprint import pformat
+
 from tinymodel.internals import(
     defaults,
     field_def_validation,
     json_object,
     random_object,
+    foreign_object,
     validation,
 )
 
@@ -122,6 +125,13 @@ class TinyModel(object):
     VALIDATED_CLASSES = []
     COLLECTION_TYPES = defaults.COLLECTION_TYPES
 
+    def __str__(self):
+        """
+        Override print method for model
+
+        """
+        return str(self.__class__) + "\nFIELDS:\n" + pformat(dict([(f.field_def.title, f.value) for f in self.FIELDS]))
+
     def __setattr__(self, name, value):
         """
         Overrides __setattr__ to set the field value
@@ -238,7 +248,7 @@ class TinyModel(object):
         return json_object.from_json(self, model_as_json, preprocessed=preprocessed)
 
     def __from_foreign_model(self, foreign_model):
-        return foreign_model.from_foreign_model(self, foreign_model)
+        return foreign_object.from_foreign_model(self, foreign_model)
 
     def __from_random(self, model_recursion_depth=1):
         return random_object.random(self, model_recursion_depth=model_recursion_depth)

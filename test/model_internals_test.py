@@ -16,6 +16,20 @@ from tinymodel.utils import(
     ModelException,
 )
 
+class ForeignModel(object):
+
+    """
+    A foreign model, used for testing from_foreign_model
+
+    """
+    def __init__(self, params):
+        """
+        Initializes a foreign model with some field values
+
+        """
+        for key, value in params.items():
+            setattr(self, key, value)
+
 
 class MyValidTypeClass(object):
 
@@ -304,8 +318,8 @@ class TinyModelTest(TestCase):
         da_tomorrow = today + timedelta(days=2)
 
         initial = {'my_int': 1,
-                   'my_str': 'butts',
-                   'my_bool': True,
+                   'my_str': 'lol_butts',
+                   'my_bool': False,
                    'my_float': 1.2345,
                    'my_datetime': datetime.today(),
                    'my_none': None,
@@ -331,7 +345,7 @@ class TinyModelTest(TestCase):
 
         initial_json = """
                        {"my_int": 1,
-                        "my_str": "butts",
+                        "my_str": "lol_butts",
                         "my_bool": true,
                         "my_float": 1.2345,
                         "my_datetime": "2013-05-06T11:30:04.518856+00:00",
@@ -356,20 +370,24 @@ class TinyModelTest(TestCase):
                         }
                         """
 
+        initial_foreign_model = ForeignModel(initial)
+
         # test validation
-        "CREATE VALID OBJECT:"
         my_valid_object = MyValidTestModel(**initial)
         my_valid_object.validate()
 
         # test random
-        "CREATE RANDOM OBJECT:"
         my_random_object = MyValidTestModel(random=True)
         my_random_object.validate()
 
         # test from_json
-        "CREATE OBJECT FROM JSON:"
         my_object_from_json = MyValidTestModel(from_json=initial_json)
         my_object_from_json.validate()
+
+        # test from_foreign_model
+        my_object_from_foreign_model = MyValidTestModel(from_foreign_model=initial_foreign_model)
+        print my_object_from_foreign_model
+        my_object_from_foreign_model.validate()
 
         # test to_json
         my_json_obj = my_object_from_json.to_json()

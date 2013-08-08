@@ -1,6 +1,3 @@
-from tinymodel.utils import UNDEFINED
-
-
 def from_foreign_model(tinymodel, foreign_model):
     """
     Translates field values from a foreign model to a TinyModel.
@@ -16,11 +13,16 @@ def from_foreign_model(tinymodel, foreign_model):
         return attrs_to_set
 
     for field_def in tinymodel.FIELD_DEFS:
-        foreign_value = (getattr(foreign_model, field_def.title, False) or
-                         getattr(foreign_model, field_def.title + "_id", False) or
-                         getattr(foreign_model, field_def.title + "_ids", UNDEFINED))
-        if foreign_value == UNDEFINED:
-            continue
+        try:
+            foreign_value = getattr(foreign_model, field_def.title)
+        except AttributeError:
+            try:
+                foreign_value = getattr(foreign_model, field_def.title + "_id")
+            except AttributeError:
+                try:
+                    foreign_value = getattr(foreign_model, field_def.title + "_ids")
+                except AttributeError:
+                    continue
         if field_def.relationship == 'has_many':
             child_class = None
             # use first usable allowed_type
