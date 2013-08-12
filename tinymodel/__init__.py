@@ -235,6 +235,12 @@ class TinyModel(object):
     def __from_random(self, model_recursion_depth=1):
         return random_object.random(self, model_recursion_depth=model_recursion_depth)
 
+    def from_json(self, model_as_json, preprocessed=False):
+        return self.__from_json(self, model_as_json, preprocessed)
+
+    def random(self, model_recursion_depth=1):
+        return self.__from_random(self, model_recursion_depth)
+
     def to_json(self, return_dict=False):
         return json_object.to_json(self, return_dict=return_dict)
 
