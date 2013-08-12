@@ -30,25 +30,19 @@ def from_foreign_model(tinymodel, foreign_model):
                 child_class = next(iter(allowed_type), None)
                 if child_class not in tinymodel.SUPPORTED_BUILTINS:
                     break
-            if child_class:
-                try:
-                    # special case for django
-                    if hasattr(foreign_value, "all"):
-                        foreign_value = foreign_value.all()
-                    # call from_foreign_model recursively
-                    attrs_to_set[field_def.title] = [child_class(from_foreign_model=val) for val in foreign_value]
-                except TypeError:
-                    pass
-            else:
-                attrs_to_set[field_def.title + "_ids"] = foreign_value
+            try:
+                # special case for django
+                if hasattr(foreign_value, "all"):
+                    foreign_value = foreign_value.all()
+                # call from_foreign_model recursively
+                attrs_to_set[field_def.title] = [child_class(from_foreign_model=val) for val in foreign_value]
+            except TypeError:
+                pass
         elif field_def.relationship == 'has_one':
             # use first usable allowed_type
             child_class = next((t for t in field_def.allowed_types if t not in tinymodel.SUPPORTED_BUILTINS), None)
-            if child_class and foreign_value:
-                # call from_foreign_model recursively
-                attrs_to_set[field_def.title] = child_class(from_foreign_model=foreign_value)
-            else:
-                attrs_to_set[field_def.title + "_id"] = foreign_value
+            # call from_foreign_model recursively
+            attrs_to_set[field_def.title] = child_class(from_foreign_model=foreign_value)
         else:
             attrs_to_set[field_def.title] = foreign_value
 

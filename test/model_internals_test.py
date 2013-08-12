@@ -1,3 +1,4 @@
+import random as r
 import warnings
 import pytz
 
@@ -39,7 +40,7 @@ class MyValidTypeClass(object):
     """
 
     def __init__(self, **kwargs):
-        pass
+        self.id = r.randint(1,1000)
 
     def to_json(self, **kwargs):
         return '{"foo": "bar"}'
@@ -59,7 +60,7 @@ class MyOtherValidTypeClass(object):
     """
 
     def __init__(self, **kwargs):
-        pass
+        self.id = r.randint(1,1000)
 
     def to_json(self, **kwargs):
         return '{"foo": "bar"}'
@@ -116,7 +117,7 @@ class MyValidTestModel(TinyModel):
                   FieldDef(title='my_nested_list_custom_type', required=True, validate=True, allowed_types=[[["test.model_internals_test.MyValidTypeClass"]]]),
                   FieldDef(title='my_nested_dict_custom_type', required=True, validate=True, allowed_types=[{str: {str: "test.model_internals_test.MyValidTypeClass"}}]),
                   FieldDef(title='my_multiple_custom_types', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass", "test.model_internals_test.MyOtherValidTypeClass"], relationship="has_one"),
-                  FieldDef(title='my_alt_custom_type', required=True, validate=True, allowed_types=[MyValidTypeClass]),
+                  FieldDef(title='my_alt_custom_type', required=True, validate=True, allowed_types=[MyValidTypeClass], relationship="has_one"),
                   FieldDef(title='my_decimal_type', required=True, validate=True, allowed_types=[Decimal]),
                   ]
 
@@ -343,7 +344,7 @@ class TinyModelTest(TestCase):
                    'my_nested_list_custom_type': [[MyValidTypeClass()]],
                    'my_nested_dict_custom_type': {'dict_one': {'one': MyValidTypeClass()}},
                    'my_multiple_custom_types': MyOtherValidTypeClass(),
-                   'my_alt_custom_type': MyValidTypeClass(),
+                   'my_alt_custom_type_id': MyValidTypeClass().id, #test is_id_field
                    'my_decimal_type': Decimal(1.2),
                    }
 
@@ -384,6 +385,17 @@ class TinyModelTest(TestCase):
         eq_(my_valid_object.my_default, 2)
         my_valid_object.my_int = 3
         eq_(my_valid_object.my_default, 4)
+
+        # test replace_refs_with_ids
+        has_one_id = my_valid_object.my_custom_type.id
+        has_many_ids = [o.id for o in my_valid_object.my_list_custom_type]
+
+        my_valid_object.replace_refs_with_ids()
+
+        eq_(my_valid_object.my_custom_type, has_one_id)
+        eq_(my_valid_object.my_list_custom_type, has_many_ids)
+
+        my_valid_object.validate()
 
         # test random
         my_random_object = MyValidTestModel(random=True)

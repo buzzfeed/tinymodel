@@ -30,7 +30,8 @@ def __validate_field_value(tinymodel, this_field, original_value, allowed_types,
     else:
         if type(value) in allowed_types:
             valid = True
-
+        elif this_field.is_id_field and type(value) in [int, long, unicode, str]:
+            valid = True
     if valid:
         this_field.last_validated_value = original_value
 

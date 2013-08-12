@@ -246,3 +246,16 @@ class TinyModel(object):
 
     def validate(self, prior_errors=[], warning_only=False):
         return validation.validate(self, prior_errors=[], warning_only=False)
+
+    def replace_refs_with_ids(self):
+        """
+        If the model has foreign key references, replace them with id fields
+
+        """
+        for field in self.FIELDS:
+            if field.field_def.relationship == 'has_one' and not field.is_id_field:
+                setattr(self, field.field_def.title + "_id", field.value.id)
+                self.FIELDS.remove(field)
+            if field.field_def.relationship == 'has_many' and not field.is_id_field:
+                setattr(self, field.field_def.title + "_ids", [o.id for o in field.value])
+                self.FIELDS.remove(field)
