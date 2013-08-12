@@ -26,7 +26,7 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
 
     if type_of_value == dict:
         # Use first allowed dict type or user-defined type
-        first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (isinstance(allowed_type, dict) or allowed_type not in tinymodel.SUPPORTED_BUILTINS)]), None)
+        first_usable_type = next((t for t in allowed_types if (isinstance(t, dict) or t not in tinymodel.SUPPORTED_BUILTINS)), None)
         if isinstance(first_usable_type, dict):
             (key_type, value_type) = first_usable_type.items()[0]
             return tinymodel.SUPPORTED_BUILTINS[dict]['from_json'](tinymodel, key_type, value_type, json_value, this_field_def)
@@ -37,7 +37,7 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'object' type not supported by FieldDef.allowed_types")
     elif type_of_value in tinymodel.COLLECTION_TYPES:
         # Use first allowed iterable type
-        first_usable_type = next(iter([allowed_type for allowed_type in allowed_types if (type(allowed_type) in (list, tuple, set))]), None)
+        first_usable_type = next((t for t in allowed_types if (type(t) in (list, tuple, set))), None)
         if first_usable_type:
             element_type = iter(first_usable_type).next()
             return tinymodel.SUPPORTED_BUILTINS[type(first_usable_type)]['from_json'](tinymodel, element_type, json_value, this_field_def)
@@ -45,7 +45,7 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'array' type not supported by FieldDef.allowed_types")
     elif type_of_value == unicode:
         # Use first allowed non-collection type
-        first_usable_type = next(iter(filter(lambda t: (t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES)) or issubclass(t, tinymodel.__class__), allowed_types)), None)
+        first_usable_type = next((t for t in allowed_types if (t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES)) or issubclass(t, tinymodel.__class__)), None)
         if first_usable_type:
             if issubclass(first_usable_type, tinymodel.__class__):
                 try:

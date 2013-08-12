@@ -90,6 +90,9 @@ class MyValidTestModel(TinyModel):
 
     """
 
+    def __calc_my_default(self):
+        return self.my_int + int(self.my_float)
+
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int, long]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str, unicode]),
                   FieldDef(title='my_bool', required=True, validate=True, allowed_types=[bool]),
@@ -101,17 +104,18 @@ class MyValidTestModel(TinyModel):
                   FieldDef(title='my_list', required=True, validate=True, allowed_types=[[int]]),
                   FieldDef(title='my_tuple', required=True, validate=True, allowed_types=[(bool,)]),
                   FieldDef(title='my_set', required=True, validate=True, allowed_types=[set([datetime])]),
+                  FieldDef(title='my_default', required=True, validate=True, allowed_types=[int, long], default=__calc_my_default),
                   FieldDef(title='my_nested_dict', required=True, validate=True, allowed_types=[{str: {str: int}}]),
                   FieldDef(title='my_nested_list', required=True, validate=True, allowed_types=[[[float]]]),
                   FieldDef(title='my_nested_tuple', required=True, validate=True, allowed_types=[((int,),)]),
                   FieldDef(title='my_nested_set', required=True, validate=True, allowed_types=[set([(datetime,)])]),
                   FieldDef(title='my_multiple_nested_types', required=True, validate=True, allowed_types=[{str: {str: int}}, {str: [[float]]}]),
-                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass"]),
-                  FieldDef(title='my_list_custom_type', required=True, validate=True, allowed_types=[["test.model_internals_test.MyValidTypeClass"]]),
+                  FieldDef(title='my_custom_type', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass"], relationship="has_one"),
+                  FieldDef(title='my_list_custom_type', required=True, validate=True, allowed_types=[["test.model_internals_test.MyValidTypeClass"]], relationship="has_many"),
                   FieldDef(title='my_dict_custom_type', required=False, validate=True, allowed_types=[{"test.model_internals_test.MyValidTypeClass": "test.model_internals_test.MyOtherValidTypeClass"}]),
                   FieldDef(title='my_nested_list_custom_type', required=True, validate=True, allowed_types=[[["test.model_internals_test.MyValidTypeClass"]]]),
                   FieldDef(title='my_nested_dict_custom_type', required=True, validate=True, allowed_types=[{str: {str: "test.model_internals_test.MyValidTypeClass"}}]),
-                  FieldDef(title='my_multiple_custom_types', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass", "test.model_internals_test.MyOtherValidTypeClass"]),
+                  FieldDef(title='my_multiple_custom_types', required=True, validate=True, allowed_types=["test.model_internals_test.MyValidTypeClass", "test.model_internals_test.MyOtherValidTypeClass"], relationship="has_one"),
                   FieldDef(title='my_alt_custom_type', required=True, validate=True, allowed_types=[MyValidTypeClass]),
                   FieldDef(title='my_decimal_type', required=True, validate=True, allowed_types=[Decimal]),
                   ]
@@ -375,6 +379,11 @@ class TinyModelTest(TestCase):
         # test validation
         my_valid_object = MyValidTestModel(**initial)
         my_valid_object.validate()
+
+        # test that default is recalculated on field change
+        eq_(my_valid_object.my_default, 2)
+        my_valid_object.my_int = 3
+        eq_(my_valid_object.my_default, 4)
 
         # test random
         my_random_object = MyValidTestModel(random=True)

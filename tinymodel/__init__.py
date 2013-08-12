@@ -22,7 +22,7 @@ class FieldDef(object):
 
     """
 
-    def __init__(self, title, required=True, validate=True, allowed_types=None, relationship='attribute', default=None, force_default=False, choices=[]):
+    def __init__(self, title, required=True, validate=True, allowed_types=None, relationship='attribute', default=None, choices=[]):
         """
         Creates an instance of a FieldDef object
 
@@ -34,7 +34,6 @@ class FieldDef(object):
                                  Must be one of ['has_one' | 'has_many' | 'attribute']
         :param function default: A function to calculate the default value of a field.
                                  This function should take a single argument of type TinyModel
-        :param bool force_default: If true, forces the default function every time values are set
 
         Allowed types are represented by Python class definitions. Valid classes include
         all Python built-in types listed in TinyModel.SUPPORTED_BUILTINS. Also valid are
@@ -64,7 +63,6 @@ class FieldDef(object):
         self.allowed_types = allowed_types
         self.relationship = relationship
         self.default = default
-        self.force_default = force_default
         self.choices = choices
 
     def __repr__(self):
@@ -132,26 +130,46 @@ class TinyModel(object):
         """
         return str(self.__class__) + "\nFIELDS:\n" + pformat(dict([(f.field_def.title, f.value) for f in self.FIELDS]))
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, key, value):
         """
         Overrides __setattr__ to set the field value
 
+        Creates and sets a field on the model, given a key and value.
+        Also creates and sets _id and _ids fields for dependency fields.
+
+        If the key does not exist in FIELD_DEFS then an error is raised.
+
         """
-        this_field = next((f for f in self.FIELDS if f.field_def.title == name), None)
-        if this_field:
-            this_field.value = value
+        valid_field_titles = [key, key.rsplit("_id")[0], key.rsplit("_ids")[0]]
+        this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
+        if this_field_def:
+            if key == this_field_def.title:
+                this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title), None)
+                if not this_field:
+                    self.FIELDS.append(Field(field_def=this_field_def, value=value))
+                else:
+                    this_field.value = value
+            else:
+                this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title and f.is_id_field), None)
+                if not this_field:
+                    self.FIELDS.append(Field(field_def=this_field_def, value=value, is_id_field=True))
+                else:
+                    this_field.value = value
         else:
-            raise ModelException("Tried to set non-existent field " + str(name) + " on model " + str(type(self)) + "\n" +
+            raise ModelException("Tried to set undefined field " + str(key) + " on model " + str(type(self)) + "\n" +
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
         # recalculate defaults
         for field_def in filter(lambda f: f.default, self.FIELD_DEFS):
-            value = field_def.default(self)
-            default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
-            if not default_field:
-                self.FIELDS.append(Field(field_def=field_def, value=value))
-            else:
-                default_field.value = value
+            try:
+                value = field_def.default(self)
+                default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
+                if not default_field:
+                    self.FIELDS.append(Field(field_def=field_def, value=value))
+                else:
+                    default_field.value = value
+            except AttributeError:
+                pass
 
     def __getattr__(self, name):
         """
@@ -182,27 +200,6 @@ class TinyModel(object):
         super(TinyModel, self).__setattr__('JSON_FAILURES', [])
         super(TinyModel, self).__setattr__('REMOVED_FIELDS', [])
 
-        def __add_dependency_field(title, value, relationship):
-            """
-            Adds a dependency field to self.FIELDS. This is so models can use id relationships instead of object relationships.
-
-            :param str title: The title of the field
-            :param value <long | int | list>: The value of the field
-            :param str relationship: The type of relationship. Either "has_one" or "has_many".
-
-            """
-            if relationship == "has_one":
-                field_def = FieldDef(title=(title + '_id'),
-                                     required=False,
-                                     allowed_types=[long, int, unicode, str, type(None)])
-            elif relationship == "has_many":
-                field_def = FieldDef(title=(field_def.title + '_ids'),
-                                     required=False,
-                                     allowed_types=[[long], [int], [unicode], [str], type(None)])
-            else:
-                raise ModelException("Unsupported relationship: " + str(relationship))
-            self.FIELDS.append(Field(field_def=field_def, value=value, is_id_field=True))
-
         # set supported methods and builtins
         if not getattr(self, 'SUPPORTED_METHODS', False):
             super(TinyModel, self).__setattr__('SUPPORTED_METHODS', defaults.SUPPORTED_METHODS)
@@ -227,22 +224,7 @@ class TinyModel(object):
 
         # add fields for initial values, and set them. including relationship support fields
         for (key, value) in initial_attributes.items():
-            valid_field_titles = [key, key.rsplit("_id")[0], key.rsplit("_ids")[0]]
-            this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
-            if this_field_def:
-                self.FIELDS.append(Field(field_def=this_field_def, value=value))
-                value_id = getattr(value, 'id', None)
-                try:
-                    value_ids = [getattr(val, 'id', None) for val in value]
-                except TypeError:
-                    value_ids = [None]
-                if this_field_def.relationship == 'has_one' and value_id is not None:
-                    __add_dependency_field(key, value_id, 'has_one')
-                elif this_field_def.relationship == 'has_many' and all(value_id is not None for value_id in value_ids):
-                    __add_dependency_field(key, value_ids, 'has_many')
-            else:
-                raise ModelException("Tried to set non-existent field " + str(key) + " on model " + str(type(self)) + "\n" +
-                                     "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
+            setattr(self, key, value)
 
     def __from_json(self, model_as_json, preprocessed=False):
         return json_object.from_json(self, model_as_json, preprocessed=preprocessed)

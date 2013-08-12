@@ -43,7 +43,7 @@ def from_foreign_model(tinymodel, foreign_model):
                 attrs_to_set[field_def.title + "_ids"] = foreign_value
         elif field_def.relationship == 'has_one':
             # use first usable allowed_type
-            child_class = next(iter([allowed_type for allowed_type in field_def.allowed_types if allowed_type not in tinymodel.SUPPORTED_BUILTINS]), None)
+            child_class = next((t for t in field_def.allowed_types if t not in tinymodel.SUPPORTED_BUILTINS), None)
             if child_class and foreign_value:
                 # call from_foreign_model recursively
                 attrs_to_set[field_def.title] = child_class(from_foreign_model=foreign_value)
