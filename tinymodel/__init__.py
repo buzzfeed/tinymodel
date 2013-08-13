@@ -191,6 +191,18 @@ class TinyModel(object):
         else:
             raise AttributeError(str(type(self)) + " has no field " + name)
 
+    def __delattr__(self, name):
+        """
+        Overrides __delattr__ to remove the field
+
+        """
+        self_fields = super(TinyModel, self).__getattribute__('FIELDS')
+        this_field = next((f for f in self_fields if f.field_def.title == name), None)
+        if this_field:
+            self.FIELDS.remove(this_field)
+        else:
+            raise AttributeError(str(type(self)) + " has no field " + name)
+
     def __init__(self, from_json=False, from_foreign_model=False, random=False, model_recursion_depth=1, **kwargs):
         """
         Checks validity of type definitions and initializes the Model
@@ -260,15 +272,18 @@ class TinyModel(object):
         If the model has foreign key references, replace them with id fields
 
         """
+        fields_to_remove = []
         for field in self.FIELDS:
             try:
                 if field.field_def.relationship == 'has_one' and not field.is_id_field:
                     setattr(self, field.field_def.title + "_id", field.value.id)
-                    self.FIELDS.remove(field)
+                    fields_to_remove.append(field.field_def.title)
                 if field.field_def.relationship == 'has_many' and not field.is_id_field:
                     setattr(self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
-                    self.FIELDS.remove(field)
+                    fields_to_remove.append(field.field_def.title)
             except AttributeError:
-                continue
+                raise
+        for field in fields_to_remove:
+            delattr(self, field)
 
         return self
