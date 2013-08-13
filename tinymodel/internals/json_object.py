@@ -146,7 +146,6 @@ def to_json(tinymodel, return_dict=False):
     """
     json_fields = {}
     object_as_json = ''
-    tinymodel.validate()
 
     for field in tinymodel.FIELDS:
         if field.is_id_field:
