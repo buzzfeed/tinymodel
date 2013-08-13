@@ -1,7 +1,6 @@
+import collections
 import json as j
-
 from tinymodel.utils import ModelException
-
 
 def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None):
     """
@@ -62,9 +61,13 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
         if type_of_value in allowed_types:
             return json_value
         else:
-            # Did not translate to an allowed type. Cast it back to JSON, find the allowed type, and translate to that.
-            first_usable_type = next(iter([allowed_type for allowed_type in allowed_types]))
-            return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value))
+            try:
+                # Did not translate to an allowed type. Cast it back to JSON, find the allowed type, and translate to that.
+                first_usable_type = next(iter([allowed_type for allowed_type in allowed_types]))
+                return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value))
+            except KeyError:
+                # Is an ids field. Just return the value.
+                return json_value
 
 
 def __field_to_json(tinymodel, this_value):
@@ -146,10 +149,14 @@ def to_json(tinymodel, return_dict=False):
     tinymodel.validate()
 
     for field in tinymodel.FIELDS:
-        try:
-            json_fields.update({field.field_def.title: __field_to_json(tinymodel, this_value=getattr(tinymodel, field.field_def.title))})
-        except AttributeError:
-            raise
+        if field.is_id_field:
+            if isinstance(field.value, collections.Iterable):
+                json_field_title = field.field_def.title + "_ids"
+            else:
+                json_field_title = field.field_def.title + "_id"
+        else:
+            json_field_title = field.field_def.title
+        json_fields.update({json_field_title: __field_to_json(tinymodel, this_value=field.value)})
     object_as_json = '{' + ','.join([('"' + key + '": ' + value) for (key, value) in json_fields.items()]) + '}'
 
     try:

@@ -315,6 +315,9 @@ class TinyModelTest(TestCase):
 
     def test_valid_fields_and_data(self):
 
+        test_alt_custom_type = MyValidTypeClass()
+        test_list_custom_types = [MyValidTypeClass(), MyValidTypeClass()]
+
         # tests type validation, data validation, random object generation, and translation from JSON format
         today = datetime.today().replace(tzinfo=pytz.utc)
         dbf_yesterday = today - timedelta(days=2)
@@ -366,14 +369,14 @@ class TinyModelTest(TestCase):
                         "my_nested_set": [["2013-05-03T11:30:04.518856+00:00", "2013-05-04T11:30:04.518856+00:00"], ["2013-05-05T11:30:04.518856+00:00"], ["2013-05-06T11:30:04.518856+00:00", "2013-05-07T11:30:04.518856+00:00"]],
                         "my_multiple_nested_types": {"dict_one": {"one": 1, "two": 2}, "dict_two": {"three": 3}, "dict_three": {"four": 4, "five": 5}},
                         "my_custom_type": {"foo": "bar"},
-                        "my_list_custom_type": [{"foo": "bar"}, {"baz": "bat"}],
+                        "my_list_custom_type_ids": %s,
                         "my_nested_list_custom_type": [[{"foo": "bar"}]],
                         "my_nested_dict_custom_type": {"dict_one": {"one": {"foo": "bar"}}},
                         "my_multiple_custom_types": {"foo": "bar"},
-                        "my_alt_custom_type": {"foo": "bar"},
+                        "my_alt_custom_type_id": %s,
                         "my_decimal_type": 1.2
                         }
-                        """
+                        """ % ([o.id for o in test_list_custom_types], test_alt_custom_type.id)
 
         initial_foreign_model = ForeignModel(initial)
 
@@ -405,12 +408,12 @@ class TinyModelTest(TestCase):
         my_object_from_json = MyValidTestModel(from_json=initial_json)
         my_object_from_json.validate()
 
+        # test to_json
+        my_json_obj = my_object_from_json.to_json(return_dict=True)
+
         # test from_foreign_model
         my_object_from_foreign_model = MyValidTestModel(from_foreign_model=initial_foreign_model)
         my_object_from_foreign_model.validate()
-
-        # test to_json
-        my_json_obj = my_object_from_json.to_json()
 
     def test_missing_data(self):
 
