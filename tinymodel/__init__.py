@@ -1,3 +1,5 @@
+from datetime import datetime
+from dateutil import parser as date_parser
 from pprint import pformat
 
 from tinymodel.internals import(
@@ -144,6 +146,11 @@ class TinyModel(object):
         this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
         if this_field_def:
             if key == this_field_def.title:
+                if type(value) in [str, unicode] and datetime in this_field_def.allowed_types:
+                    try:
+                        value = date_parser.parse(value)
+                    except ValueError:
+                        pass
                 this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title), None)
                 if not this_field:
                     self.FIELDS.append(Field(field_def=this_field_def, value=value))

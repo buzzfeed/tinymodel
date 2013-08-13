@@ -329,7 +329,7 @@ class TinyModelTest(TestCase):
                    'my_str': 'lol_butts',
                    'my_bool': True,
                    'my_float': 1.2345,
-                   'my_datetime': datetime.today(),
+                   'my_datetime': datetime.utcnow().replace(tzinfo=pytz.utc).isoformat(), #test datetimes as strings
                    'my_none': None,
                    'my_multiple_builtin_types': 1,
                    'my_dict': {'one': 1.0, 'two': 2.0, 'three': 3.0, 'four': 4.0, 'five': 5.0},
