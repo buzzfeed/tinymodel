@@ -253,11 +253,14 @@ class TinyModel(object):
 
         """
         for field in self.FIELDS:
-            if field.field_def.relationship == 'has_one' and not field.is_id_field:
-                setattr(self, field.field_def.title + "_id", field.value.id)
-                self.FIELDS.remove(field)
-            if field.field_def.relationship == 'has_many' and not field.is_id_field:
-                setattr(self, field.field_def.title + "_ids", [o.id for o in field.value])
-                self.FIELDS.remove(field)
+            try:
+                if field.field_def.relationship == 'has_one' and not field.is_id_field:
+                    setattr(self, field.field_def.title + "_id", field.value.id)
+                    self.FIELDS.remove(field)
+                if field.field_def.relationship == 'has_many' and not field.is_id_field:
+                    setattr(self, field.field_def.title + "_ids", [o.id for o in field.value])
+                    self.FIELDS.remove(field)
+            except AttributeError:
+                continue
 
         return self

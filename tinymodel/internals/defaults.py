@@ -50,12 +50,12 @@ SUPPORTED_BUILTINS = {
     str: {
         'to_json': lambda this_value: str(j.dumps(this_value)),
         'from_json': lambda this_value: str(j.loads(this_value)),
-        'random': lambda: ''.join(r.choice(''.join([s.digits, s.letters, ' '])) for x in range(r.randint(0, 25))).encode("ascii"),
+        'random': lambda: ''.join(r.choice(''.join([s.digits, s.letters, ' '])) for x in range(r.randint(1, 25))).encode("ascii"),
     },
     unicode: {
         'to_json': lambda this_value: unicode(j.dumps(this_value)),
         'from_json': lambda this_value: unicode(j.loads(this_value)),
-        'random': lambda: ''.join(unichr(r.choice([ord(i) for i in ''.join([s.letters, s.digits, ' '])])) for x in range(r.randint(0, 25))).encode("utf-8"),
+        'random': lambda: ''.join(unichr(r.choice([ord(i) for i in ''.join([s.letters, s.digits, ' '])])) for x in range(r.randint(1, 25))).encode("utf-8"),
     },
     datetime: {
         'to_json': lambda this_value: j.dumps(this_value, default=lambda obj: obj.replace(microsecond=0).isoformat()),
