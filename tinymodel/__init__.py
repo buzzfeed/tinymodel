@@ -1,3 +1,4 @@
+import inflection
 from datetime import datetime
 from dateutil import parser as date_parser
 from pprint import pformat
@@ -142,7 +143,7 @@ class TinyModel(object):
         If the key does not exist in FIELD_DEFS then an error is raised.
 
         """
-        valid_field_titles = [key, key.rsplit("_id")[0], key.rsplit("_ids")[0]]
+        valid_field_titles = [key, key.rsplit("_id")[0], inflection.pluralize(key.rsplit("_ids")[0])]
         this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
         if this_field_def:
             if key == this_field_def.title:
@@ -265,7 +266,7 @@ class TinyModel(object):
                     setattr(self, field.field_def.title + "_id", field.value.id)
                     self.FIELDS.remove(field)
                 if field.field_def.relationship == 'has_many' and not field.is_id_field:
-                    setattr(self, field.field_def.title + "_ids", [o.id for o in field.value])
+                    setattr(self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
                     self.FIELDS.remove(field)
             except AttributeError:
                 continue

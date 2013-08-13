@@ -1,3 +1,5 @@
+import inflection
+
 def from_foreign_model(tinymodel, foreign_model):
     """
     Translates field values from a foreign model to a TinyModel.
@@ -20,7 +22,7 @@ def from_foreign_model(tinymodel, foreign_model):
                 foreign_value = getattr(foreign_model, field_def.title + "_id")
             except AttributeError:
                 try:
-                    foreign_value = getattr(foreign_model, field_def.title + "_ids")
+                    foreign_value = getattr(foreign_model, inflection.singularize(field_def.title) + "_ids")
                 except AttributeError:
                     continue
         if field_def.relationship == 'has_many':

@@ -1,4 +1,5 @@
 import collections
+import inflection
 import json as j
 from tinymodel.utils import ModelException
 
@@ -120,7 +121,7 @@ def from_json(tinymodel, model_as_json, preprocessed=False):
         json_fields = model_as_json
 
     for (json_field_name, json_field_value) in json_fields.items():
-        this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.title + "_id", f.title + "_ids"]), None)
+        this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.title + "_id", inflection.singularize(f.title) + "_ids"]), None)
         if this_field_def:
             fields_to_set[json_field_name] = __field_from_json(tinymodel,
                                                                allowed_types=this_field_def.allowed_types,
@@ -146,7 +147,7 @@ def to_json(tinymodel, return_dict=False):
     for field in tinymodel.FIELDS:
         if field.is_id_field:
             if isinstance(field.value, collections.Iterable):
-                json_field_title = field.field_def.title + "_ids"
+                json_field_title = inflection.singularize(field.field_def.title) + "_ids"
             else:
                 json_field_title = field.field_def.title + "_id"
         else:
