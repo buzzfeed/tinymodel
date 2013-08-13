@@ -259,3 +259,5 @@ class TinyModel(object):
             if field.field_def.relationship == 'has_many' and not field.is_id_field:
                 setattr(self, field.field_def.title + "_ids", [o.id for o in field.value])
                 self.FIELDS.remove(field)
+
+        return self
