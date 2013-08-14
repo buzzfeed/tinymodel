@@ -282,7 +282,7 @@ class TinyModel(object):
                     setattr(self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
                     fields_to_remove.append(field.field_def.title)
             except AttributeError:
-                raise
+                pass
         for field in fields_to_remove:
             delattr(self, field)
 
