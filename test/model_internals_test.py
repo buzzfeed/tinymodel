@@ -393,7 +393,7 @@ class TinyModelTest(TestCase):
         has_one_id = my_valid_object.my_custom_type.id
         has_many_ids = [o.id for o in my_valid_object.my_list_custom_type]
 
-        my_valid_object.replace_refs_with_ids()
+        my_valid_object.replace_refs_with_ids(return_copy=False)
 
         eq_(my_valid_object.my_custom_type, has_one_id)
         eq_(my_valid_object.my_list_custom_type, has_many_ids)

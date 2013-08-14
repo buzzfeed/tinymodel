@@ -1,3 +1,4 @@
+import copy
 import inflection
 from datetime import datetime
 from dateutil import parser as date_parser
@@ -267,23 +268,31 @@ class TinyModel(object):
     def validate(self, prior_errors=[], warning_only=False):
         return validation.validate(self, prior_errors=[], warning_only=False)
 
-    def replace_refs_with_ids(self):
+    def replace_refs_with_ids(self, return_copy=True):
         """
         If the model has foreign key references, replace them with id fields
 
+        :param bool return_copy: If True, returns a copy of self. If False, mutes self.
+
+        :rtype TinyModel: The TinyModel, with refs to other models replaced by ids.
+
         """
+        if return_copy:
+            copy_of_self = copy.deepcopy(self)
+        else:
+            copy_of_self = self
         fields_to_remove = []
-        for field in self.FIELDS:
+        for field in copy_of_self.FIELDS:
             try:
                 if field.field_def.relationship == 'has_one' and not field.is_id_field:
-                    setattr(self, field.field_def.title + "_id", field.value.id)
+                    setattr(copy_of_self, field.field_def.title + "_id", field.value.id)
                     fields_to_remove.append(field.field_def.title)
                 if field.field_def.relationship == 'has_many' and not field.is_id_field:
-                    setattr(self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
+                    setattr(copy_of_self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
                     fields_to_remove.append(field.field_def.title)
             except AttributeError:
                 pass
         for field in fields_to_remove:
-            delattr(self, field)
+            delattr(copy_of_self, field)
 
-        return self
+        return copy_of_self
