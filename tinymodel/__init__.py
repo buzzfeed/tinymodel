@@ -186,7 +186,8 @@ class TinyModel(object):
 
         """
         self_fields = super(TinyModel, self).__getattribute__('FIELDS')
-        this_field = next((f for f in self_fields if f.field_def.title == name), None)
+        valid_field_titles = [name, name.rsplit("_id")[0], inflection.pluralize(name.rsplit("_ids")[0])]
+        this_field = next((f for f in self_fields if f.field_def.title in valid_field_titles), None)
         if this_field:
             return this_field.value
         else:

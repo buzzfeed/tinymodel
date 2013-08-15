@@ -383,6 +383,7 @@ class TinyModelTest(TestCase):
         # test validation
         my_valid_object = MyValidTestModel(**initial)
         my_valid_object.validate()
+        ok_(my_valid_object.my_alt_custom_type_id)
 
         # test that default is recalculated on field change
         eq_(my_valid_object.my_default, 2)
