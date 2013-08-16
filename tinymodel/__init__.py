@@ -96,7 +96,7 @@ class Field(object):
         self.last_validated_value = None
 
     def __repr__(self):
-        return unicode('<tinymodel.Field "%s">' % self.title)
+        return unicode('<tinymodel.Field "%s">' % self.field_def.title)
 
     def is_valid(self):
         """
