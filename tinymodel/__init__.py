@@ -3,6 +3,7 @@ import inflection
 from datetime import datetime
 from dateutil import parser as date_parser
 from pprint import pformat
+from collections import Iterable
 
 from tinymodel.internals import(
     defaults,
@@ -132,7 +133,7 @@ class TinyModel(object):
         Override print method for model
 
         """
-        return str(self.__class__) + "\nFIELDS:\n" + pformat(dict([(f.field_def.title, f.value) for f in self.FIELDS]))
+        return str(self.__class__) + "\nFIELDS:\n" + pformat(dict([(f.field_def.title, f.value) for f in self.FIELDS])) + "\n"
 
     def __setattr__(self, key, value):
         """
@@ -189,9 +190,16 @@ class TinyModel(object):
         valid_field_titles = [name, name.rsplit("_id")[0], inflection.pluralize(name.rsplit("_ids")[0])]
         this_field = next((f for f in self_fields if f.field_def.title in valid_field_titles), None)
         if this_field:
-            return this_field.value
+            if this_field.field_def.title == name or this_field.is_id_field:
+                return this_field.value
+            elif this_field.field_def.relationship == 'has_one' and hasattr(this_field.value, 'id'):
+                return this_field.value.id
+            elif this_field.field_def.relationship == 'has_many' and isinstance(this_field.value, Iterable) and all(hasattr(v, 'id') for v in this_field.value):
+                return [v.id for v in this_field.value]
+            else:
+                raise AttributeError(str(self) + "is missing id attribute on field " + this_field.field_def.title)
         else:
-            raise AttributeError(str(type(self)) + " has no field " + name)
+            raise AttributeError(str(self) + " has no field " + name)
 
     def __delattr__(self, name):
         """
@@ -205,7 +213,7 @@ class TinyModel(object):
         else:
             raise AttributeError(str(type(self)) + " has no field " + name)
 
-    def __init__(self, from_json=False, from_foreign_model=False, random=False, model_recursion_depth=1, **kwargs):
+    def __init__(self, from_json=False, from_foreign_model=False, random=False, model_recursion_depth=1, preprocessed=False, **kwargs):
         """
         Checks validity of type definitions and initializes the Model
 
@@ -213,6 +221,7 @@ class TinyModel(object):
         :param object from_foreign_model: Another type of model class (Django model for example) that has attributes whose titles match the keys of FIELD_DEFS.
         :param bool random: A flag indicating whether the model properties should be initialized to random values.
         :param int model_recursion_depth: Used in conjunction with random. Determines how many times to recurse when generating parents and children.
+        :param bool preprocessed: A flag indicating whether from_json has already been through a JSON preprocessor
         :param objects **kwargs: The initial values of each field can be passed in as a keyword parameter.
                                Values are not validated until you call Model.validate()
 
@@ -236,7 +245,7 @@ class TinyModel(object):
 
         # set initial values
         if from_json:
-            initial_attributes = self.__from_json(from_json)
+            initial_attributes = self.__from_json(from_json, preprocessed=preprocessed)
         elif from_foreign_model:
             initial_attributes = self.__from_foreign_model(from_foreign_model)
         elif random:

@@ -30,7 +30,7 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             return tinymodel.SUPPORTED_BUILTINS[dict]['from_json'](tinymodel, key_type, value_type, json_value, this_field_def)
         elif first_usable_type:
             # Assume we are dealing with a valid user-defined type
-            return first_usable_type().from_json(model_as_json=json_value, preprocessed=True)
+            return first_usable_type(from_json=json_value, preprocessed=True)
         else:
             raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'object' type not supported by FieldDef.allowed_types")
     elif type_of_value in tinymodel.COLLECTION_TYPES:

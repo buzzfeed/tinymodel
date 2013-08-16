@@ -415,6 +415,7 @@ class TinyModelTest(TestCase):
         # test from_foreign_model
         my_object_from_foreign_model = MyValidTestModel(from_foreign_model=initial_foreign_model)
         my_object_from_foreign_model.validate()
+        ok_(my_object_from_foreign_model.my_alt_custom_type_id)
 
     def test_missing_data(self):
 
