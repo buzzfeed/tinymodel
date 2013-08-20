@@ -74,6 +74,7 @@ def validate(tinymodel, prior_errors=[], warning_only=False):
         else:
             raise ValidationError("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
 
+
 def __extend_foreign_fields(field_defs_list):
     extended_model_names = []
     for field_def in field_defs_list:
@@ -156,3 +157,10 @@ def __match_field_value(cls, name, value):
 def match_field_values(cls, **kwargs):
     for name, value in kwargs.iteritems():
         __match_field_value(cls, name, value)
+
+
+def remove_default_values(cls, **kwargs):
+    for field_def in cls.FIELD_DEFS:
+        if field_def.default and field_def.title in kwargs:
+            del kwargs[field_def.title]
+    return kwargs
