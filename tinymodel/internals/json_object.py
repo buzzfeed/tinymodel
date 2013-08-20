@@ -43,9 +43,9 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'array' type not supported by FieldDef.allowed_types")
     elif type_of_value == unicode:
         # Use first allowed non-collection type
-        first_usable_type = next((t for t in allowed_types if (t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES)) or issubclass(t, tinymodel.__class__)), None)
+        first_usable_type = next((t for t in allowed_types if (issubclass(t, type(tinymodel).__bases__[0]) or t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES))), None)
         if first_usable_type:
-            if issubclass(first_usable_type, tinymodel.__class__):
+            if issubclass(first_usable_type, type(tinymodel).__bases__[0]):
                 try:
                     return first_usable_type(from_json=json_value)
                 except ValueError:
