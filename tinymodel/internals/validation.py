@@ -1,3 +1,5 @@
+import warnings
+from tinymodel.internals.field_def_validation import __substitute_class_refs
 from tinymodel.utils import ValidationError
 
 
@@ -71,3 +73,86 @@ def validate(tinymodel, prior_errors=[], warning_only=False):
             warnings.warn("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
         else:
             raise ValidationError("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
+
+def __extend_foreign_fields(field_defs_list):
+    extended_model_names = []
+    for field_def in field_defs_list:
+        if field_def.relationship == 'has_one':
+            extended_model_names.append(field_def.title + '_id')
+        elif field_def.relationship == 'has_many':
+            extended_model_names.append(field_def.title + '_ids')
+    return extended_model_names
+
+
+def match_model_names(cls, **kwargs):
+    extended_rel_fields = __extend_foreign_fields(cls.FIELD_DEFS)
+    model_names = [f.title for f in cls.FIELD_DEFS] + extended_rel_fields
+    for name in kwargs.keys():
+        if name not in model_names:
+            raise ValidationError(
+                '"{}" is not a valid parameter. Options are: {}'\
+                .format(name, model_names))
+
+
+def __match_field_value(cls, name, value):
+    error = '"{}" is not a valid value for "{}". Allowed types are: {}'
+    value_type = type(value)
+    if value_type in cls.COLLECTION_TYPES:
+        if name.endswith('_ids') and value_type in (list, tuple, set):
+            for v in value:
+                if type(v) not in (long, int, str, unicode):
+                    raise ValidationError(error.format(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)'))
+                if type(v) in (str, unicode):
+                    try:
+                        long(v)
+                    except ValueError:
+                        raise ValidationError(error.format(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)'))
+        else:
+            field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
+            for index, allowed_type in enumerate(field_def.allowed_types):
+                field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
+            error = error.format(value, field_def.title, field_def.allowed_types)
+            valid_allowed_types = [x for x in field_def.allowed_types if isinstance(x, value_type)]
+
+            if valid_allowed_types:
+                if value and isinstance(value, dict):
+                    key_valid = __match_field_value(cls, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
+                    value_valid = __match_field_value(cls, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
+                    if not (key_valid and value_valid):
+                        raise ValidationError(error.format(value, name, field_def.allowed_types))
+                elif value:
+                    for v in value:
+                        valid = False
+                        for allowed_type in valid_allowed_types:
+                            if isinstance(allowed_type, (list, tuple, set)):
+                                if type(v) in allowed_type:
+                                    valid = True
+                                    continue
+                                else:
+                                    if type(v) == allowed_type:
+                                        valid = True
+                                        continue
+                        if not valid:
+                            raise ValidationError(error.format(value, name, field_def.allowed_types))
+    else:
+        if name.endswith('_id'):
+            if value_type not in (long, int, str, unicode):
+                raise ValidationError(error.format(value, name, [long, int, str, unicode]))
+            if value_type in (str, unicode):
+                try:
+                    long(value)
+                except ValueError:
+                    raise ValidationError(error.format(value, name, [long, int, str, unicode]))
+        else:
+            field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
+            for index, allowed_type in enumerate(field_def.allowed_types):
+                field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
+            if value_type not in field_def.allowed_types:
+                raise ValidationError(error.format(value, name, field_def.allowed_types))
+            elif getattr(field_def, 'is_id_field', False) and value_type not in [int, long, unicode, str]:
+                raise ValidationError(error.format(value, name, field_def.allowed_types))
+
+
+def match_field_values(cls, **kwargs):
+    for name, value in kwargs.iteritems():
+        __match_field_value(cls, name, value)

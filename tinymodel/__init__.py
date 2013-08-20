@@ -6,6 +6,7 @@ from pprint import pformat
 from collections import Iterable
 
 from tinymodel.internals import(
+    api,
     defaults,
     field_def_validation,
     json_object,
@@ -127,6 +128,7 @@ class TinyModel(object):
     """
     VALIDATED_CLASSES = []
     COLLECTION_TYPES = defaults.COLLECTION_TYPES
+    find = classmethod(api.find)
 
     def __str__(self):
         """
