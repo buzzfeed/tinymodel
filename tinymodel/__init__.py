@@ -192,9 +192,9 @@ class TinyModel(object):
         if this_field:
             if this_field.field_def.title == name or this_field.is_id_field:
                 return this_field.value
-            elif this_field.field_def.relationship == 'has_one' and hasattr(this_field.value, 'id'):
+            elif "_id" in name and this_field.field_def.relationship == 'has_one' and hasattr(this_field.value, 'id'):
                 return this_field.value.id
-            elif this_field.field_def.relationship == 'has_many' and isinstance(this_field.value, Iterable) and all(hasattr(v, 'id') for v in this_field.value):
+            elif "_ids" in name and this_field.field_def.relationship == 'has_many' and isinstance(this_field.value, Iterable) and all(hasattr(v, 'id') for v in this_field.value):
                 return [v.id for v in this_field.value]
             else:
                 raise AttributeError(str(self) + "is missing id attribute on field " + this_field.field_def.title)
