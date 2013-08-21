@@ -129,6 +129,8 @@ class TinyModel(object):
     VALIDATED_CLASSES = []
     COLLECTION_TYPES = defaults.COLLECTION_TYPES
     find = classmethod(api.find)
+    create = classmethod(api.create)
+    update = classmethod(api.update)
 
     def __str__(self):
         """

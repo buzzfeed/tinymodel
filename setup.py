@@ -19,5 +19,6 @@ setup(
         'pytz==2013b',
         'python-dateutil==2.1',
         'inflection==0.2.0',
+        'mock==1.0.1',
     ]
 )

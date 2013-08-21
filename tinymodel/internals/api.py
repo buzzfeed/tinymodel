@@ -1,5 +1,18 @@
 from tinymodel.internals import defaults
-from tinymodel.internals.validation import match_model_names, match_field_values
+from tinymodel.internals.validation import (
+    match_model_names,
+    match_field_values,
+    remove_default_values,
+)
+
+
+def __call_api_method(cls, service, method_name, **kwargs):
+    match_model_names(cls, **kwargs)
+    match_field_values(cls, **kwargs)
+    if not hasattr(service, method_name):
+        raise AttributeError('The given service need a "%s" method!' % method_name)
+    response = getattr(service, method_name)(**kwargs)
+    return render_to_response(cls, response, service.return_type)
 
 
 def render_to_response(cls, response, return_type='json'):
@@ -32,9 +45,14 @@ def render_to_response(cls, response, return_type='json'):
 
 
 def find(cls, service, **kwargs):
-    match_model_names(cls, **kwargs)
-    match_field_values(cls, **kwargs)
-    if not hasattr(service, 'find'):
-        raise AssertionError('The given service need a "find" method!')
-    response = service.find(**kwargs)
-    return render_to_response(cls, response, service.return_type)
+    return __call_api_method(cls, service, 'find', **kwargs)
+
+
+def create(cls, service, **kwargs):
+    kwargs = remove_default_values(cls, **kwargs)
+    return __call_api_method(cls, service, 'create', **kwargs)
+
+
+def update(cls, service, **kwargs):
+    kwargs = remove_default_values(cls, **kwargs)
+    return __call_api_method(cls, service, 'update', **kwargs)
