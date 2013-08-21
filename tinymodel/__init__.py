@@ -130,6 +130,7 @@ class TinyModel(object):
     COLLECTION_TYPES = defaults.COLLECTION_TYPES
     find = classmethod(api.find)
     create = classmethod(api.create)
+    get_or_create = classmethod(api.get_or_create)
     update = classmethod(api.update)
 
     def __str__(self):
