@@ -144,6 +144,31 @@ class APiTest(TestCase):
                 assert_raises(ValidationError, MyTinyModel.update, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
+    def _test_get_or_create(self, service):
+        with patch('tinymodel.internals.api.match_field_values'):
+            with patch('tinymodel.internals.api.render_to_response') as rendered1:
+                MyTinyModel.get_or_create(service, **self.TEST_DEFAULT_PARAMS)
+                ok_(rendered1.called)
+
+            with patch('tinymodel.internals.api.render_to_response') as rendered2:
+                MyTinyModel.get_or_create(service, **self.VALID_PARAMS)
+                ok_(rendered2.called)
+
+        with patch('tinymodel.internals.api.render_to_response') as rendered3:
+            assert_raises(ValidationError, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+            ok_(not rendered3.called)
+
+        with patch('tinymodel.internals.api.render_to_response') as rendered4:
+            with patch('tinymodel.internals.api.match_field_values'):
+                assert_raises(ValidationError, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+                ok_(not rendered4.called)
+
+    def test_get_or_create_intuitive_service(self):
+        self._test_get_or_create(Service(get_or_create=MagicMock()))
+
+    def test_get_or_create_alt_service(self):
+        self._test_get_or_create(Service(find=MagicMock(), create=MagicMock()))
+
     def test_missing_service_function(self):
         service = Service()
         for service_method in ['find', 'create', 'update']:
