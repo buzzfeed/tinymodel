@@ -1,4 +1,6 @@
+from datetime import datetime
 import warnings
+
 from tinymodel.internals.field_def_validation import __substitute_class_refs
 from tinymodel.utils import ValidationError
 
@@ -162,5 +164,26 @@ def match_field_values(cls, **kwargs):
 def remove_default_values(cls, **kwargs):
     for field_def in cls.FIELD_DEFS:
         if field_def.default and field_def.title in kwargs:
+            del kwargs[field_def.title]
+    return kwargs
+
+
+def remove_has_many_values(cls, **kwargs):
+    for field_def in cls.FIELD_DEFS:
+        if field_def.relationship == 'has_many' and field_def.title in kwargs:
+            del kwargs[field_def.title]
+    return kwargs
+
+
+def remove_datetime_values(cls, **kwargs):
+    for field_def in cls.FIELD_DEFS:
+        if datetime in field_def.allowed_types and field_def.title in kwargs:
+            del kwargs[field_def.title]
+    return kwargs
+
+
+def remove_float_values(cls, **kwargs):
+    for field_def in cls.FIELD_DEFS:
+        if float in field_def.allowed_types and field_def.title in kwargs:
             del kwargs[field_def.title]
     return kwargs

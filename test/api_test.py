@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from unittest import TestCase
 from mock import patch, MagicMock
@@ -18,6 +19,8 @@ class MyTinyModel(TinyModel):
         FieldDef('my_fk', allowed_types=["test.api_test.MyOtherModel"], relationship='has_one'),
         FieldDef('my_m2m', allowed_types=[["test.api_test.MyOtherModel"]], relationship='has_many'),
         FieldDef('my_default_value', allowed_types=[bool], default=__default),
+        FieldDef('my_datetime', allowed_types=[datetime]),
+        FieldDef('my_float', allowed_types=[float]),
     ]
 
 
@@ -99,10 +102,6 @@ class APiTest(TestCase):
                 for k, v in valid_params.iteritems():
                     MyTinyModel.find(service, **{k: v})
                     ok_(renderer1.called)
-            with patch('tinymodel.internals.api.render_to_response') as renderer2:
-                for k, v in invalid_params.iteritems():
-                    assert_raises(ValidationError, MyTinyModel.find, service, **{k: v})
-                    ok_(not renderer2.called)
 
     def test_create(self):
         service = Service(create=MagicMock())
