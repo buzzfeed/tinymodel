@@ -3,6 +3,9 @@ from tinymodel.internals.validation import (
     match_model_names,
     match_field_values,
     remove_default_values,
+    remove_has_many_values,
+    remove_float_values,
+    remove_datetime_values,
 )
 
 
@@ -18,6 +21,7 @@ def __call_api_method(cls, service, method_name, **kwargs):
     :rtype [tinymodel.TinyModel|list(tinymodel.TinyModel)]: The translated response.
 
     """
+    kwargs = remove_default_values(cls, **kwargs)
     match_model_names(cls, **kwargs)
     match_field_values(cls, **kwargs)
     if not hasattr(service, method_name):
@@ -68,6 +72,9 @@ def render_to_response(cls, response, return_type='json'):
 
 def find(cls, service, **kwargs):
     """ Performs a search operation given the passed arguments. """
+    kwargs = remove_has_many_values(cls, **kwargs)
+    kwargs = remove_datetime_values(cls, **kwargs)
+    kwargs = remove_float_values(cls, **kwargs)
     return __call_api_method(cls, service, 'find', **kwargs)
 
 
