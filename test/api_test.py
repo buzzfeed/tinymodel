@@ -173,3 +173,16 @@ class APiTest(TestCase):
         for service_method in ['find', 'create', 'update']:
             api_method = getattr(MyTinyModel, service_method)
             assert_raises(AttributeError, api_method, service, **self.VALID_PARAMS)
+
+    def test_call_with_endpoint_name(self):
+        service_method_names = ['find', 'create', 'update', 'get_or_create']
+        service_kwargs = {name: MagicMock() for name in service_method_names}
+        service = Service(**service_kwargs)
+        with patch('tinymodel.internals.api.render_to_response'):
+            with patch('tinymodel.internals.api.match_field_values'):
+                with patch('tinymodel.internals.api.match_model_names'):
+                    with patch('tinymodel.internals.api.remove_default_values'):
+                        for name in service_method_names:
+                            service_method = getattr(MyTinyModel, name)
+                            service_method(service, endpoint_name='endpoint_name')
+                            service_kwargs[name].assert_called_with(endpoint_name='endpoint_name')
