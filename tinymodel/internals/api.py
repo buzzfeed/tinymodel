@@ -1,3 +1,4 @@
+import inflection
 from tinymodel.internals import defaults
 from tinymodel.internals.validation import (
     match_model_names,
@@ -9,7 +10,7 @@ from tinymodel.internals.validation import (
 )
 
 
-def __call_api_method(cls, service, method_name, **kwargs):
+def __call_api_method(cls, service, method_name, endpoint_name=None, **kwargs):
     """
     Calls a generic method from the given class using the given params.
 
@@ -26,7 +27,10 @@ def __call_api_method(cls, service, method_name, **kwargs):
     match_field_values(cls, **kwargs)
     if not hasattr(service, method_name):
         raise AttributeError('The given service need a "%s" method!' % method_name)
-    response = getattr(service, method_name)(**kwargs)
+
+    if endpoint_name is None:
+        endpoint_name = inflection.underscore(cls.__name__)
+    response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
     return render_to_response(cls, response, service.return_type)
 
 
@@ -70,35 +74,35 @@ def render_to_response(cls, response, return_type='json'):
         return cls(from_json=response)
 
 
-def find(cls, service, **kwargs):
+def find(cls, service, endpoint_name=None, **kwargs):
     """ Performs a search operation given the passed arguments. """
     kwargs = remove_has_many_values(cls, **kwargs)
     kwargs = remove_datetime_values(cls, **kwargs)
     kwargs = remove_float_values(cls, **kwargs)
-    return __call_api_method(cls, service, 'find', **kwargs)
+    return __call_api_method(cls, service, 'find', endpoint_name, **kwargs)
 
 
-def create(cls, service, **kwargs):
+def create(cls, service, endpoint_name=None, **kwargs):
     """ Performs a create operation given the passed arguments, ignoring default values. """
     kwargs = remove_default_values(cls, **kwargs)
-    return __call_api_method(cls, service, 'create', **kwargs)
+    return __call_api_method(cls, service, 'create', endpoint_name, **kwargs)
 
 
-def get_or_create(cls, service, **kwargs):
+def get_or_create(cls, service, endpoint_name=None, **kwargs):
     """
     Performs a <get_or_create> operation. Optionally <find> and <create> service
     methods may be used instead of a service-specific <get_or_create>
     """
     if hasattr(service, 'find') and hasattr(service, 'create') and not hasattr(service, 'get_or_create'):
-        found = find(cls, service, **kwargs)
+        found = find(cls, service, endpoint_name, **kwargs)
         if found:
             return found[0]
-        return create(cls, service, **kwargs)
+        return create(cls, service, endpoint_name, **kwargs)
     kwargs = remove_default_values(cls, **kwargs)
-    return __call_api_method(cls, service, 'get_or_create', **kwargs)
+    return __call_api_method(cls, service, 'get_or_create', endpoint_name, **kwargs)
 
 
-def update(cls, service, **kwargs):
+def update(cls, service, endpoint_name=None, **kwargs):
     """ Performs an update matching the given arguments. """
     kwargs = remove_default_values(cls, **kwargs)
-    return __call_api_method(cls, service, 'update', **kwargs)
+    return __call_api_method(cls, service, 'update', endpoint_name, **kwargs)
