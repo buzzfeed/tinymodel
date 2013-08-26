@@ -138,7 +138,12 @@ def __match_field_value(cls, name, value):
                         if not valid:
                             raise ValidationError(error.format(value, name, field_def.allowed_types))
     else:
-        if name.endswith('_id'):
+        try:
+            field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
+        except IndexError:  # the id is expanded with _id, remove _id
+            field_def = filter(lambda f: f.title == name[:-3], cls.FIELD_DEFS)[0]
+
+        if name.endswith('_id') and field_def.relationship != 'attribute':
             if value_type not in (long, int, str, unicode):
                 raise ValidationError(error.format(value, name, [long, int, str, unicode]))
             if value_type in (str, unicode):
