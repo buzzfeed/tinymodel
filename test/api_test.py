@@ -21,6 +21,7 @@ class MyTinyModel(TinyModel):
         FieldDef('my_default_value', allowed_types=[bool], default=__default),
         FieldDef('my_datetime', allowed_types=[datetime]),
         FieldDef('my_float', allowed_types=[float]),
+        FieldDef('my_id', allowed_types=[str, unicode]),
     ]
 
 
@@ -35,7 +36,7 @@ class MyForeignModel(object):
 
 class APiTest(TestCase):
     TEST_DEFAULT_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, 'my_default_value': False}
-    VALID_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, }
+    VALID_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, 'my_id': 'TEST'}
     INVALID_PARAMS = {'my_str': 1, 'my_fk': MyForeignModel(), 'my_fk_id': 'foo',
                       'my_m2m': [MyForeignModel()], 'my_m2m_ids': ['foo', u'bar'],
                       'foo': 'foo'}
