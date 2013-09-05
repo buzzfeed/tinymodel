@@ -28,7 +28,8 @@ class FieldDef(object):
 
     """
 
-    def __init__(self, title, required=True, validate=True, allowed_types=None, relationship='attribute', default=None, choices=[]):
+    def __init__(self, title, required=True, validate=True, allowed_types=None,
+                 relationship='attribute', calculated=None, default_value=None, choices=[]):
         """
         Creates an instance of a FieldDef object
 
@@ -38,7 +39,7 @@ class FieldDef(object):
         :param [ class | {class: class} | [class] | (class,) | {class,} ] allowed_types: An array of allowed types for the field
         :param str relationship: Specifies the type of relationship, for related model fields.
                                  Must be one of ['has_one' | 'has_many' | 'attribute']
-        :param function default: A function to calculate the default value of a field.
+        :param function calculated: A function to calculate the default value of a field.
                                  This function should take a single argument of type TinyModel
 
         Allowed types are represented by Python class definitions. Valid classes include
@@ -68,11 +69,15 @@ class FieldDef(object):
         self.validate = validate
         self.allowed_types = allowed_types
         self.relationship = relationship
-        self.default = default
+        self.calculated = calculated
+        self.default_value = default_value
         self.choices = choices
 
     def __repr__(self):
         return unicode('<tinymodel.FieldDef "%s">' % self.title)
+
+    def has_valid_default_value(self):
+        return type(self.default_value) in self.allowed_types
 
 
 class Field(object):
@@ -107,7 +112,6 @@ class Field(object):
         :param object current_value: The current value of the field.
         :rtype bool: Flag indicating whether the field is currently valid or not.
         """
-
         return bool(self.was_validated and self.value == self.last_validated_value)
 
 
@@ -150,7 +154,7 @@ class TinyModel(object):
         If the key does not exist in FIELD_DEFS then an error is raised.
 
         """
-        valid_field_titles = [key, key.rsplit("_id")[0], inflection.pluralize(key.rsplit("_ids")[0])]
+        valid_field_titles = set([key, key.rsplit("_id")[0], inflection.pluralize(key.rsplit("_ids")[0])])
         this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
         if this_field_def:
             if key == this_field_def.title:
@@ -175,9 +179,9 @@ class TinyModel(object):
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
         # recalculate defaults
-        for field_def in filter(lambda f: f.default, self.FIELD_DEFS):
+        for field_def in filter(lambda f: f.calculated, self.FIELD_DEFS):
             try:
-                value = field_def.default(self)
+                value = field_def.calculated(self)
                 default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
                 if not default_field:
                     self.FIELDS.append(Field(field_def=field_def, value=value))
@@ -192,7 +196,7 @@ class TinyModel(object):
 
         """
         self_fields = super(TinyModel, self).__getattribute__('FIELDS')
-        valid_field_titles = [name, name.rsplit("_id")[0], inflection.pluralize(name.rsplit("_ids")[0])]
+        valid_field_titles = set([name, name.rsplit("_id")[0], inflection.pluralize(name.rsplit("_ids")[0])])
         this_field = next((f for f in self_fields if f.field_def.title in valid_field_titles), None)
         if this_field:
             if this_field.field_def.title == name or this_field.is_id_field:
@@ -218,7 +222,8 @@ class TinyModel(object):
         else:
             raise AttributeError(str(type(self)) + " has no field " + name)
 
-    def __init__(self, from_json=False, from_foreign_model=False, random=False, model_recursion_depth=1, preprocessed=False, **kwargs):
+    def __init__(self, from_json=False, from_foreign_model=False, random=False,
+                 model_recursion_depth=1, preprocessed=False, set_defaults=True, **kwargs):
         """
         Checks validity of type definitions and initializes the Model
 
@@ -261,27 +266,23 @@ class TinyModel(object):
         # add fields for initial values, and set them. including relationship support fields
         for (key, value) in initial_attributes.items():
             setattr(self, key, value)
+        if set_defaults:
+            # set default values for fields not passed
+            for this_field_def in set(self.FIELD_DEFS) - set(f.field_def for f in self.FIELDS):
+                if this_field_def.has_valid_default_value() and not this_field_def.title in ['id']:  # if not, let it raise an Exception, warning about missing data
+                    setattr(self, this_field_def.title, this_field_def.default_value)
 
-    def __from_json(self, model_as_json, preprocessed=False):
-        return json_object.from_json(self, model_as_json, preprocessed=preprocessed)
-
-    def __from_foreign_model(self, foreign_model):
-        return foreign_object.from_foreign_model(self, foreign_model)
-
-    def __from_random(self, model_recursion_depth=1):
-        return random_object.random(self, model_recursion_depth=model_recursion_depth)
+    __from_json = json_object.from_json
+    __from_foreign_model = foreign_object.from_foreign_model
+    __from_random = random_object.random
+    to_json = json_object.to_json
+    validate = validation.validate
 
     def from_json(self, model_as_json, preprocessed=False):
         return self.__from_json(self, model_as_json, preprocessed)
 
     def random(self, model_recursion_depth=1):
         return self.__from_random(self, model_recursion_depth)
-
-    def to_json(self, return_dict=False):
-        return json_object.to_json(self, return_dict=return_dict)
-
-    def validate(self, prior_errors=[], warning_only=False):
-        return validation.validate(self, prior_errors=[], warning_only=False)
 
     def replace_refs_with_ids(self, return_copy=True):
         """

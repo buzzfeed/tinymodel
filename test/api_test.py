@@ -5,7 +5,7 @@ from mock import patch, MagicMock
 from nose.tools import assert_raises, ok_
 from tinymodel import TinyModel, FieldDef, api
 from tinymodel.service import Service
-from tinymodel.utils import ValidationError
+from tinymodel.utils import ValidationError, ModelException
 
 
 class MyTinyModel(TinyModel):
@@ -18,7 +18,7 @@ class MyTinyModel(TinyModel):
         FieldDef('my_bool', allowed_types=[bool]),
         FieldDef('my_fk', allowed_types=["test.api_test.MyOtherModel"], relationship='has_one'),
         FieldDef('my_m2m', allowed_types=[["test.api_test.MyOtherModel"]], relationship='has_many'),
-        FieldDef('my_default_value', allowed_types=[bool], default=__default),
+        FieldDef('my_default_value', allowed_types=[bool], calculated=__default),
         FieldDef('my_datetime', allowed_types=[datetime]),
         FieldDef('my_float', allowed_types=[float]),
         FieldDef('my_id', allowed_types=[str, unicode]),
@@ -123,12 +123,12 @@ class APiTest(TestCase):
                 ok_(rendered2.called)
 
         with patch('tinymodel.internals.api.render_to_response') as rendered3:
-            assert_raises(ValidationError, MyTinyModel.create, service, **self.INVALID_PARAMS)
+            assert_raises(ModelException, MyTinyModel.create, service, **self.INVALID_PARAMS)
             ok_(not rendered3.called)
 
         with patch('tinymodel.internals.api.render_to_response') as rendered4:
             with patch('tinymodel.internals.api.match_field_values'):
-                assert_raises(ValidationError, MyTinyModel.create, service, **self.INVALID_PARAMS)
+                assert_raises(ModelException, MyTinyModel.create, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
     def test_update(self):
@@ -189,7 +189,7 @@ class APiTest(TestCase):
         with patch('tinymodel.internals.api.render_to_response'):
             with patch('tinymodel.internals.api.match_field_values'):
                 with patch('tinymodel.internals.api.match_model_names'):
-                    with patch('tinymodel.internals.api.remove_default_values'):
+                    with patch('tinymodel.internals.api.remove_calculated_values'):
                         for name in service_method_names:
                             service_method = getattr(MyTinyModel, name)
                             service_method(service, endpoint_name='endpoint_name')

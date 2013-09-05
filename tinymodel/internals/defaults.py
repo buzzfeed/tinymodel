@@ -13,6 +13,7 @@ from tinymodel.internals.json_object import(
     __field_from_json,
 )
 
+
 COLLECTION_TYPES = (dict, list, tuple, set)
 SUPPORTED_METHODS = ['to_json', 'from_json', 'random']
 

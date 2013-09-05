@@ -105,7 +105,7 @@ class MyValidTestModel(TinyModel):
                   FieldDef(title='my_list', required=True, validate=True, allowed_types=[[int]]),
                   FieldDef(title='my_tuple', required=True, validate=True, allowed_types=[(bool,)]),
                   FieldDef(title='my_set', required=True, validate=True, allowed_types=[set([datetime])]),
-                  FieldDef(title='my_default', required=True, validate=True, allowed_types=[int, long], default=__calc_my_default),
+                  FieldDef(title='my_default', required=True, validate=True, allowed_types=[int, long], calculated=__calc_my_default),
                   FieldDef(title='my_nested_dict', required=True, validate=True, allowed_types=[{str: {str: int}}]),
                   FieldDef(title='my_nested_list', required=True, validate=True, allowed_types=[[[float]]]),
                   FieldDef(title='my_nested_tuple', required=True, validate=True, allowed_types=[((int,),)]),
