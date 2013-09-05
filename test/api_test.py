@@ -104,6 +104,13 @@ class APiTest(TestCase):
                     MyTinyModel.find(service, **{k: v})
                     ok_(renderer1.called)
 
+        # test limit and offset
+        with patch('tinymodel.internals.api.match_model_names'):
+            with patch('tinymodel.internals.api.render_to_response') as renderer1:
+                for k, v in valid_params.iteritems():
+                    MyTinyModel.find(service, limit=10, offset=1, **{k: v})
+                    ok_(renderer1.called)
+
     def test_create(self):
         service = Service(create=MagicMock())
         with patch('tinymodel.internals.api.match_field_values'):
