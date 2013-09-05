@@ -7,6 +7,7 @@ from tinymodel.internals.validation import (
     remove_has_many_values,
     remove_float_values,
     remove_datetime_values,
+    validate_order_by,
 )
 
 
@@ -22,6 +23,13 @@ def __call_api_method(cls, service, method_name, endpoint_name=None, **kwargs):
     :rtype [tinymodel.TinyModel|list(tinymodel.TinyModel)]: The translated response.
 
     """
+    # find special params
+    extra_params = {}
+    if method_name == 'find':
+        extra_params['limit'] = kwargs.pop('limit')
+        extra_params['offset'] = kwargs.pop('offset')
+        extra_params['order_by'] = kwargs.pop('order_by')
+
     kwargs = remove_default_values(cls, **kwargs)
     match_model_names(cls, **kwargs)
     match_field_values(cls, **kwargs)
@@ -30,6 +38,7 @@ def __call_api_method(cls, service, method_name, endpoint_name=None, **kwargs):
 
     if endpoint_name is None:
         endpoint_name = inflection.underscore(cls.__name__)
+    kwargs.update(extra_params)
     response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
     return render_to_response(cls, response, service.return_type)
 
@@ -74,11 +83,17 @@ def render_to_response(cls, response, return_type='json'):
         return cls(from_json=response)
 
 
-def find(cls, service, endpoint_name=None, **kwargs):
+def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={}, **kwargs):
     """ Performs a search operation given the passed arguments. """
     kwargs = remove_has_many_values(cls, **kwargs)
     kwargs = remove_datetime_values(cls, **kwargs)
     kwargs = remove_float_values(cls, **kwargs)
+    validate_order_by(cls, order_by)
+    kwargs.update({
+        'offset': offset,
+        'limit': limit,
+        'order_by': order_by
+    })
     return __call_api_method(cls, service, 'find', endpoint_name, **kwargs)
 
 

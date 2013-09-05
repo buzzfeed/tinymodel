@@ -192,3 +192,12 @@ def remove_float_values(cls, **kwargs):
         if float in field_def.allowed_types and field_def.title in kwargs:
             del kwargs[field_def.title]
     return kwargs
+
+
+def validate_order_by(cls, order_by):
+    ORDER_BY_VALUES = ['ascending', 'descending', None]
+    for key, value in order_by.items():
+        if key not in [title for title in [field_def.title for field_def in cls.FIELD_DEFS]]:
+            raise ValidationError(str(key) + " is not valid searchable field")
+        if value not in ORDER_BY_VALUES:
+            raise ValidationError(str(value) + " is not a valid ordering option, valid options are: " + str(ORDER_BY_VALUES))
