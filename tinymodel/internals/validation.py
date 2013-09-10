@@ -1,8 +1,8 @@
 from datetime import datetime
+import inflection
 import warnings
-
 from tinymodel.internals.field_def_validation import __substitute_class_refs
-from tinymodel.utils import ValidationError
+from tinymodel.utils import ValidationError, get_field_def_names
 
 
 def __validate_field_value(tinymodel, this_field, original_value, allowed_types, value):
@@ -83,7 +83,7 @@ def __extend_foreign_fields(field_defs_list):
         if field_def.relationship == 'has_one':
             extended_model_names.append(field_def.title + '_id')
         elif field_def.relationship == 'has_many':
-            extended_model_names.append(field_def.title + '_ids')
+            extended_model_names.append(inflection.singularize(field_def.title) + '_ids')
     return extended_model_names
 
 
@@ -98,23 +98,25 @@ def match_model_names(cls, **kwargs):
 
 
 def __match_field_value(cls, name, value):
-    error = '"{}" is not a valid value for "{}". Allowed types are: {}'
+    def new_validation_error(value, field_name, allowed_types):
+        error = '<{} "{}"> is not a valid value for "{}". Allowed types are: {}'
+        return ValidationError(error.format(type(value).__name__, value, field_name, allowed_types))
+
     value_type = type(value)
     if value_type in cls.COLLECTION_TYPES:
         if name.endswith('_ids') and value_type in (list, tuple, set):
             for v in value:
                 if type(v) not in (long, int, str, unicode):
-                    raise ValidationError(error.format(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)'))
+                    raise new_validation_error(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)')
                 if type(v) in (str, unicode):
                     try:
                         long(v)
                     except ValueError:
-                        raise ValidationError(error.format(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)'))
+                        raise new_validation_error(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)')
         else:
             field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
             for index, allowed_type in enumerate(field_def.allowed_types):
                 field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
-            error = error.format(value, field_def.title, field_def.allowed_types)
             valid_allowed_types = [x for x in field_def.allowed_types if isinstance(x, value_type)]
 
             if valid_allowed_types:
@@ -122,7 +124,7 @@ def __match_field_value(cls, name, value):
                     key_valid = __match_field_value(cls, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
                     value_valid = __match_field_value(cls, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
                     if not (key_valid and value_valid):
-                        raise ValidationError(error.format(value, name, field_def.allowed_types))
+                        raise new_validation_error(value, name, field_def.allowed_types)
                 elif value:
                     for v in value:
                         valid = False
@@ -136,7 +138,7 @@ def __match_field_value(cls, name, value):
                                         valid = True
                                         continue
                         if not valid:
-                            raise ValidationError(error.format(value, name, field_def.allowed_types))
+                            raise new_validation_error(value, name, field_def.allowed_types)
     else:
         try:
             field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
@@ -144,21 +146,21 @@ def __match_field_value(cls, name, value):
             field_def = filter(lambda f: f.title == name[:-3], cls.FIELD_DEFS)[0]
 
         if name.endswith('_id') and field_def.relationship != 'attribute':
-            if value_type not in (long, int, str, unicode):
-                raise ValidationError(error.format(value, name, [long, int, str, unicode]))
-            if value_type in (str, unicode):
+            if value_type not in set(field_def.allowed_types[1:] + [long, int, str, unicode]):
+                raise new_validation_error(value, name, [long, int, str, unicode])
+            if value_type in (str, unicode) and not value == None:
                 try:
                     long(value)
                 except ValueError:
-                    raise ValidationError(error.format(value, name, [long, int, str, unicode]))
+                    raise new_validation_error(value, name, [long, int, str, unicode])
         else:
             field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
             for index, allowed_type in enumerate(field_def.allowed_types):
                 field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
             if value_type not in field_def.allowed_types:
-                raise ValidationError(error.format(value, name, field_def.allowed_types))
+                raise new_validation_error(value, name, field_def.allowed_types)
             elif getattr(field_def, 'is_id_field', False) and value_type not in [int, long, unicode, str]:
-                raise ValidationError(error.format(value, name, field_def.allowed_types))
+                raise new_validation_error(value, name, field_def.allowed_types)
 
 
 def match_field_values(cls, **kwargs):
@@ -166,31 +168,12 @@ def match_field_values(cls, **kwargs):
         __match_field_value(cls, name, value)
 
 
-def remove_default_values(cls, **kwargs):
+def __remove_values(cls, condition, **kwargs):
+    keys = set(kwargs.keys())
     for field_def in cls.FIELD_DEFS:
-        if field_def.default and field_def.title in kwargs:
-            del kwargs[field_def.title]
-    return kwargs
-
-
-def remove_has_many_values(cls, **kwargs):
-    for field_def in cls.FIELD_DEFS:
-        if field_def.relationship == 'has_many' and field_def.title in kwargs:
-            del kwargs[field_def.title]
-    return kwargs
-
-
-def remove_datetime_values(cls, **kwargs):
-    for field_def in cls.FIELD_DEFS:
-        if datetime in field_def.allowed_types and field_def.title in kwargs:
-            del kwargs[field_def.title]
-    return kwargs
-
-
-def remove_float_values(cls, **kwargs):
-    for field_def in cls.FIELD_DEFS:
-        if float in field_def.allowed_types and field_def.title in kwargs:
-            del kwargs[field_def.title]
+        field_names = set(get_field_def_names(field_def))
+        if condition(field_def) and (field_names & keys):
+            del kwargs[(field_names & keys).pop()]
     return kwargs
 
 
@@ -201,3 +184,9 @@ def validate_order_by(cls, order_by):
             raise ValidationError(str(key) + " is not valid searchable field")
         if value not in ORDER_BY_VALUES:
             raise ValidationError(str(value) + " is not a valid ordering option, valid options are: " + str(ORDER_BY_VALUES))
+
+
+remove_calculated_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.calculated, **kwargs)
+remove_has_many_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.relationship == 'has_many', **kwargs)
+remove_datetime_values = lambda cls, **kwargs: __remove_values(cls, lambda f: datetime in f.allowed_types, **kwargs)
+remove_float_values = lambda cls, **kwargs: __remove_values(cls, lambda f: float in f.allowed_types, **kwargs)

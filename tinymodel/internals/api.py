@@ -3,7 +3,7 @@ from tinymodel.internals import defaults
 from tinymodel.internals.validation import (
     match_model_names,
     match_field_values,
-    remove_default_values,
+    remove_calculated_values,
     remove_has_many_values,
     remove_float_values,
     remove_datetime_values,
@@ -30,7 +30,7 @@ def __call_api_method(cls, service, method_name, endpoint_name=None, **kwargs):
         extra_params['offset'] = kwargs.pop('offset')
         extra_params['order_by'] = kwargs.pop('order_by')
 
-    kwargs = remove_default_values(cls, **kwargs)
+    kwargs = remove_calculated_values(cls, **kwargs)
     match_model_names(cls, **kwargs)
     match_field_values(cls, **kwargs)
     if not hasattr(service, method_name):
@@ -99,9 +99,9 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
 
 def create(cls, service, endpoint_name=None, **kwargs):
     """ Performs a create operation given the passed arguments, ignoring default values. """
-    kwargs = remove_default_values(cls, **kwargs)
+    kwargs = remove_calculated_values(cls, **kwargs)
+    kwargs = cls(**kwargs).to_json(return_raw=True)
     return __call_api_method(cls, service, 'create', endpoint_name, **kwargs)
-
 
 def get_or_create(cls, service, endpoint_name=None, **kwargs):
     """
@@ -113,11 +113,11 @@ def get_or_create(cls, service, endpoint_name=None, **kwargs):
         if found:
             return found[0]
         return create(cls, service, endpoint_name, **kwargs)
-    kwargs = remove_default_values(cls, **kwargs)
+    kwargs = remove_calculated_values(cls, **kwargs)
     return __call_api_method(cls, service, 'get_or_create', endpoint_name, **kwargs)
 
 
 def update(cls, service, endpoint_name=None, **kwargs):
     """ Performs an update matching the given arguments. """
-    kwargs = remove_default_values(cls, **kwargs)
+    kwargs = remove_calculated_values(cls, **kwargs)
     return __call_api_method(cls, service, 'update', endpoint_name, **kwargs)
