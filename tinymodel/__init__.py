@@ -175,10 +175,10 @@ class TinyModel(object):
                 else:
                     this_field.value = value
         else:
-            raise ModelException("Tried to set undefined field " + str(key) + " on model " + str(type(self)) + "\n" +
+            raise ModelException('Tried to set undefined field "' + str(key) + '" on model ' + str(type(self)) + "\n" +
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
 
-        # recalculate defaults
+        # recalculate "calculated" fields
         for field_def in filter(lambda f: f.calculated, self.FIELD_DEFS):
             try:
                 value = field_def.calculated(self)

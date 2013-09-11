@@ -6,7 +6,7 @@ class Service(object):
     A service class provided to support CRUD or any operation using specific data
     services, it could be used to query any data storage.
     """
-    RETURN_TYPES = ['tinymodel', 'foreign_model', 'json']
+    ALLOWED_RETURN_TYPES = ['tinymodel', 'foreign_model', 'json']
 
     def __init__(self, return_type='json', **kwargs):
         """
@@ -14,8 +14,8 @@ class Service(object):
 
         :params str return_type: whether to return json, foreign_model or tinymodel
         """
-        if return_type not in self.RETURN_TYPES:
-            raise ValidationError('Service "%s" is not a valid return_type, valid options are: %s' % (str(return_type), str(self.RETURN_TYPES)))
+        if return_type not in self.ALLOWED_RETURN_TYPES:
+            raise ValidationError('Service "%s" is not a valid return_type, valid options are: %s' % (str(return_type), str(self.ALLOWED_RETURN_TYPES)))
         self.return_type = return_type
 
         for key, value in kwargs.items():

@@ -93,7 +93,9 @@ def __field_to_json(tinymodel, this_value, raw=False):
                             values.append(v.id)
                         elif not isinstance(v, TinyModel):
                             values.append(v)
-                return values
+                    return values
+                elif isinstance(this_value, dict) and 'id' in this_value:
+                    return this_value['id']
             return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](tinymodel, this_value)
         else:
             return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](this_value) if not raw else this_value
@@ -161,7 +163,7 @@ def to_json(tinymodel, return_dict=False, return_raw=False):
 
     for field in tinymodel.FIELDS:
         if field.is_id_field:
-            if isinstance(field.value, collections.Iterable):
+            if isinstance(field.value, collections.Iterable) and not isinstance(field.value, basestring):
                 json_field_title = inflection.singularize(field.field_def.title) + "_ids"
             else:
                 json_field_title = field.field_def.title + "_id"
