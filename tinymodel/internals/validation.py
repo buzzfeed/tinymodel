@@ -87,16 +87,6 @@ def __extend_foreign_fields(field_defs_list):
     return extended_model_names
 
 
-def match_model_names(cls, **kwargs):
-    extended_rel_fields = __extend_foreign_fields(cls.FIELD_DEFS)
-    model_names = [f.title for f in cls.FIELD_DEFS] + extended_rel_fields
-    for name in kwargs.keys():
-        if name not in model_names:
-            raise ValidationError(
-                '"{}" is not a valid parameter. Options are: {}'\
-                .format(name, model_names))
-
-
 def __match_field_value(cls, name, value):
     def new_validation_error(value, field_name, allowed_types):
         error = '<{} "{}"> is not a valid value for "{}". Allowed types are: {}'

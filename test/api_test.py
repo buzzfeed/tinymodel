@@ -1,8 +1,9 @@
 from datetime import datetime
 import json
+import random
 from unittest import TestCase
 from mock import patch, MagicMock
-from nose.tools import assert_raises, ok_
+from nose.tools import assert_raises, ok_, eq_
 from tinymodel import TinyModel, FieldDef, api
 from tinymodel.service import Service
 from tinymodel.utils import ValidationError, ModelException
@@ -18,7 +19,7 @@ class MyTinyModel(TinyModel):
         FieldDef('my_bool', allowed_types=[bool]),
         FieldDef('my_fk', allowed_types=["test.api_test.MyOtherModel"], relationship='has_one'),
         FieldDef('my_m2m', allowed_types=[["test.api_test.MyOtherModel"]], relationship='has_many'),
-        FieldDef('my_default_value', allowed_types=[bool], calculated=__default),
+        FieldDef('my_calculated_value', allowed_types=[bool], calculated=__default),
         FieldDef('my_datetime', allowed_types=[datetime]),
         FieldDef('my_float', allowed_types=[float]),
         FieldDef('my_id', allowed_types=[str, unicode]),
@@ -35,7 +36,7 @@ class MyForeignModel(object):
 
 
 class APiTest(TestCase):
-    TEST_DEFAULT_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, 'my_default_value': False}
+    TEST_DEFAULT_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, 'my_calculated_value': False}
     VALID_PARAMS = {'my_str': 'str', 'my_int': 1, 'my_bool': True, 'my_id': 'TEST'}
     INVALID_PARAMS = {'my_str': 1, 'my_fk': MyForeignModel(), 'my_fk_id': 'foo',
                       'my_m2m': [MyForeignModel()], 'my_m2m_ids': ['foo', u'bar'],
@@ -52,41 +53,52 @@ class APiTest(TestCase):
                                           my_m2m=[MyOtherModel()])
         tinymodel_response = MyTinyModel(from_json=json_response)
 
-        # test return_type=json
-        response = api.render_to_response(MyTinyModel, json_response, return_type='json')
-        ok_(isinstance(response, MyTinyModel))
-        response = api.render_to_response(MyTinyModel, [json_response], return_type='json')
-        ok_(isinstance(response, list))
-        [ok_(isinstance(o, MyTinyModel)) for o in response]
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, foreign_response, return_type='json')
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, tinymodel_response, return_type='json')
-        # test return_type=tinymodel
-        response = api.render_to_response(MyTinyModel, tinymodel_response, return_type='tinymodel')
-        ok_(isinstance(response, MyTinyModel))
-        response = api.render_to_response(MyTinyModel, [tinymodel_response], return_type='tinymodel')
-        ok_(isinstance(response, list))
-        [ok_(isinstance(o, MyTinyModel)) for o in response]
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, json_response, return_type='tinymodel')
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, foreign_response, return_type='tinymodel')
-        # test return_type=foreign_model
-        response = api.render_to_response(MyTinyModel, foreign_response, return_type='foreign_model')
-        ok_(isinstance(response, MyTinyModel))
-        response = api.render_to_response(MyTinyModel, [foreign_response], return_type='foreign_model')
-        ok_(isinstance(response, list))
-        [ok_(isinstance(o, MyTinyModel)) for o in response]
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, json_response, return_type='foreign_model')
-        assert_raises(TypeError, api.render_to_response, MyTinyModel, tinymodel_response, return_type='foreign_model')
+        def __check_alien_params(resp, alien_params):
+            resp, alien_params_ = resp[:1], resp[1:]
+            if alien_params:
+                eq_(alien_params_, alien_params)
+            else:
+                ok_(not alien_params_)
 
-    def test_find_and_match_names_and_values(self):
+        def __run_simple_test(responses, return_type, alien_params=[]):
+            this_response = responses.pop(return_type)
+            response = api.render_to_response(MyTinyModel, this_response, return_type, *alien_params)
+            __check_alien_params(response, alien_params)
+            ok_(isinstance(response, list) and isinstance(response[0], MyTinyModel))
+            response = api.render_to_response(MyTinyModel, [this_response], return_type, *alien_params)
+            __check_alien_params(response, alien_params)
+            ok_(isinstance(response, list))
+            [ok_(isinstance(o, MyTinyModel)) for o in response[0]]
+            for s_response in responses.values():
+                assert_raises(TypeError, api.render_to_response, MyTinyModel, s_response, return_type)
+
+        service_responses = {
+            'json': json_response,
+            'foreign_model': foreign_response,
+            'tinymodel': tinymodel_response
+        }
+        for rtype in service_responses.keys():
+            __run_simple_test(service_responses.copy(), rtype)
+
+        responses = service_responses.copy()
+        service_args = {}
+        alien_params = [True, False, None, 1, [], {}, (), set()]
+        for k in service_responses.keys():
+            resp_alien_params = [random.choice(alien_params) for i in range(random.randint(1, len(alien_params)))]
+            service_args[k] = resp_alien_params
+        for rtype in responses.keys():
+            __run_simple_test(responses.copy(), rtype, alien_params=service_args[rtype])
+
+    def test_find_and_match_values(self):
         service = Service(find=MagicMock())
         valid_params = self.VALID_PARAMS.copy()
-        valid_params.update({'my_fk': MyOtherModel(), 'my_m2m': [MyOtherModel()],
+        valid_params.update({#'my_fk': MyOtherModel(), 'my_m2m': [MyOtherModel()],
                              'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
                              'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
                              'my_m2m_ids': [u'1', u'2']})
         invalid_params = self.INVALID_PARAMS.copy()
         invalid_params.pop('foo', None)
-        invalid_names = ['my_other', 'my_fk_ids', 'my_m2m_id']
+        invalid_names = ['my_other', 'foo', 'bar']
 
         with patch('tinymodel.internals.api.render_to_response'):
             with patch('tinymodel.internals.api.match_field_values') as match_values1:
@@ -95,21 +107,19 @@ class APiTest(TestCase):
                     ok_(match_values1.called)
             with patch('tinymodel.internals.api.match_field_values') as match_values2:
                 for key in invalid_names:
-                    assert_raises(ValidationError, MyTinyModel.find, service, **{key: 'foo'})
+                    assert_raises(ModelException, MyTinyModel.find, service, **{key: 'foo'})
                     ok_(not match_values2.called)
 
-        with patch('tinymodel.internals.api.match_model_names'):
-            with patch('tinymodel.internals.api.render_to_response') as renderer1:
-                for k, v in valid_params.iteritems():
-                    MyTinyModel.find(service, **{k: v})
-                    ok_(renderer1.called)
+        with patch('tinymodel.internals.api.render_to_response') as renderer1:
+            for k, v in valid_params.iteritems():
+                MyTinyModel.find(service, **{k: v})
+                ok_(renderer1.called)
 
         # test limit and offset
-        with patch('tinymodel.internals.api.match_model_names'):
-            with patch('tinymodel.internals.api.render_to_response') as renderer1:
-                for k, v in valid_params.iteritems():
-                    MyTinyModel.find(service, limit=10, offset=1, **{k: v})
-                    ok_(renderer1.called)
+        with patch('tinymodel.internals.api.render_to_response') as renderer1:
+            for k, v in valid_params.iteritems():
+                MyTinyModel.find(service, limit=10, offset=1, **{k: v})
+                ok_(renderer1.called)
 
     def test_create(self):
         service = Service(create=MagicMock())
@@ -143,34 +153,35 @@ class APiTest(TestCase):
                 ok_(rendered2.called)
 
         with patch('tinymodel.internals.api.render_to_response') as rendered3:
-            assert_raises(ValidationError, MyTinyModel.update, service, **self.INVALID_PARAMS)
+            assert_raises(ModelException, MyTinyModel.update, service, **self.INVALID_PARAMS)
             ok_(not rendered3.called)
 
         with patch('tinymodel.internals.api.render_to_response') as rendered4:
             with patch('tinymodel.internals.api.match_field_values'):
-                assert_raises(ValidationError, MyTinyModel.update, service, **self.INVALID_PARAMS)
+                assert_raises(ModelException, MyTinyModel.update, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
     def _test_get_or_create(self, service):
+        kwargs = {'return_value': (MagicMock(), random.choice([False, True]))}
         with patch('tinymodel.internals.api.match_field_values'):
-            with patch('tinymodel.internals.api.render_to_response') as rendered1:
+            with patch('tinymodel.internals.api.render_to_response', **kwargs) as rendered1:
                 MyTinyModel.get_or_create(service, **self.TEST_DEFAULT_PARAMS)
                 ok_(rendered1.called)
 
-            with patch('tinymodel.internals.api.render_to_response') as rendered2:
+            with patch('tinymodel.internals.api.render_to_response', **kwargs) as rendered2:
                 MyTinyModel.get_or_create(service, **self.VALID_PARAMS)
                 ok_(rendered2.called)
 
-        with patch('tinymodel.internals.api.render_to_response') as rendered3:
-            assert_raises(ValidationError, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+        with patch('tinymodel.internals.api.render_to_response', **kwargs) as rendered3:
+            assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
             ok_(not rendered3.called)
 
-        with patch('tinymodel.internals.api.render_to_response') as rendered4:
+        with patch('tinymodel.internals.api.render_to_response', **kwargs) as rendered4:
             with patch('tinymodel.internals.api.match_field_values'):
-                assert_raises(ValidationError, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+                assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
-    def test_get_or_create_intuitive_service(self):
+    def test_get_or_create_natural_service(self):
         self._test_get_or_create(Service(get_or_create=MagicMock()))
 
     def test_get_or_create_alt_service(self):
@@ -183,14 +194,18 @@ class APiTest(TestCase):
             assert_raises(AttributeError, api_method, service, **self.VALID_PARAMS)
 
     def test_call_with_endpoint_name(self):
-        service_method_names = ['find', 'create', 'update', 'get_or_create']
-        service_kwargs = {name: MagicMock() for name in service_method_names}
+        service_methods_kwargs = {
+            'find': {'return_value': [MagicMock()] * 3},
+            'create': {'return_value': MagicMock()},
+            'update': {'return_value': MagicMock()},
+            'get_or_create': {'return_value': (MagicMock(), random.choice([False, True]))},
+        }
+        service_kwargs = {method_name: MagicMock() for method_name in service_methods_kwargs.keys()}
         service = Service(**service_kwargs)
-        with patch('tinymodel.internals.api.render_to_response'):
-            with patch('tinymodel.internals.api.match_field_values'):
-                with patch('tinymodel.internals.api.match_model_names'):
-                    with patch('tinymodel.internals.api.remove_calculated_values'):
-                        for name in service_method_names:
-                            service_method = getattr(MyTinyModel, name)
-                            service_method(service, endpoint_name='endpoint_name')
-                            service_kwargs[name].assert_called_with(endpoint_name='endpoint_name')
+        with patch('tinymodel.internals.api.match_field_values'):
+            with patch('tinymodel.internals.api.remove_calculated_values'):
+                for method_name, kwargs in service_methods_kwargs.iteritems():
+                    with patch('tinymodel.internals.api.render_to_response', **kwargs):
+                        api_method = getattr(MyTinyModel, method_name)
+                        api_method(service, endpoint_name='endpoint_name')
+                        service_kwargs[method_name].assert_called_with(endpoint_name='endpoint_name')
