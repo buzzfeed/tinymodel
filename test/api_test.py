@@ -4,7 +4,7 @@ import random
 from unittest import TestCase
 from mock import patch, MagicMock
 from nose.tools import assert_raises, ok_, eq_
-from tinymodel import TinyModel, FieldDef, api
+from tinymodel import TinyModel, FieldDef, api, defaults
 from tinymodel.service import Service
 from tinymodel.utils import ValidationError, ModelException
 
@@ -27,7 +27,10 @@ class MyTinyModel(TinyModel):
 
 
 class MyOtherModel(TinyModel):
-    FIELD_DEFS = [FieldDef('my_float', allowed_types=[float])]
+    FIELD_DEFS = [
+        FieldDef('id', allowed_types=[long, int]),
+        FieldDef('my_float', allowed_types=[float])
+    ]
 
 
 class MyForeignModel(object):
@@ -92,7 +95,7 @@ class APiTest(TestCase):
     def test_find_and_match_values(self):
         service = Service(find=MagicMock())
         valid_params = self.VALID_PARAMS.copy()
-        valid_params.update({#'my_fk': MyOtherModel(), 'my_m2m': [MyOtherModel()],
+        valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
                              'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
                              'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
                              'my_m2m_ids': [u'1', u'2']})
@@ -209,3 +212,24 @@ class APiTest(TestCase):
                         api_method = getattr(MyTinyModel, method_name)
                         api_method(service, endpoint_name='endpoint_name')
                         service_kwargs[method_name].assert_called_with(endpoint_name='endpoint_name')
+
+    def test_api_methods_response(self):
+        service_methods_kwargs = {
+            'find': {'kwargs': {'return_value': [MagicMock()] * 3}, 'type': list,},
+            'create': {'kwargs': {'return_value': MagicMock()}},
+            'update': {'kwargs': {'return_value': MagicMock()}},
+            'get_or_create': {'kwargs': {'return_value': (MagicMock(), random.choice([False, True]))}, 'type': tuple},
+        }
+        service_kwargs = {method_name: MagicMock(**params['kwargs']) \
+            for method_name, params in service_methods_kwargs.iteritems()}
+        service = Service(return_type='foreign_model', **service_kwargs)
+        with patch('tinymodel.internals.api.match_field_values'):
+            with patch('tinymodel.internals.api.remove_calculated_values'):
+                for method_name, params in service_methods_kwargs.iteritems():
+                    api_method = getattr(MyTinyModel, method_name)
+                    response = api_method(service)
+                    if 'type' in params:
+                        eq_(type(response), params['type'])
+                        eq_(len(response), len(params['kwargs']['return_value']))
+                    else:
+                        ok_(not isinstance(response, defaults.COLLECTION_TYPES))

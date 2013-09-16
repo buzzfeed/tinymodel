@@ -44,7 +44,7 @@ def render_to_response(cls, response, return_type='json', *alien_params):
             response = [response]
         for o in response:
             if type(o) in (defaults.SUPPORTED_BUILTINS.keys() + list(defaults.COLLECTION_TYPES)):
-                raise TypeError('Response is not a foreign model, it is of built-in type %r' % type(response))
+                raise TypeError('Response is not a foreign model, it is of built-in type %r' % type(o))
             elif issubclass(type(o), cls.__bases__[0]):
                 raise TypeError('Response is not a foreign model, it is of type %r' % cls.__bases__[0])
         response = [cls(from_foreign_model=o) for o in response]
@@ -62,15 +62,22 @@ def render_to_response(cls, response, return_type='json', *alien_params):
 
 
 def __get_resp_with_alien_params(response):
+    alien_params = []
     if response and isinstance(response, (list, tuple, set)):
         response = list(response)
-        resp, extra = response[:1], response[1:]
-        if len(extra) > 1:
-            resptype = type(resp[0])
-            alien_params = filter(lambda o: not isinstance(o, resptype), extra)
-            if alien_params:
-                return resp[0], tuple(alien_params)
-    return response, ()
+        response, extra = response[:1], response[1:]
+        part_of_response = []
+
+        if extra:
+            resptype = type(response[0])
+            for o in extra:
+                if isinstance(o, resptype):
+                    part_of_response.append(o)
+                else:
+                    alien_params.append(o)
+        response.extend(part_of_response)
+
+    return response, alien_params
 
 
 def __call_api_method(cls, service, method_name, endpoint_name=None, set_model_defaults=False, **kwargs):
@@ -125,6 +132,7 @@ def create(cls, service, endpoint_name=None, **kwargs):
     """ Performs a create operation given the passed arguments, ignoring default values. """
     return __call_api_method(cls, service, 'create', endpoint_name, True, **kwargs)[0]
 
+
 def get_or_create(cls, service, endpoint_name=None, **kwargs):
     """
     Performs a <get_or_create> operation. Optionally <find> and <create> service
@@ -138,9 +146,9 @@ def get_or_create(cls, service, endpoint_name=None, **kwargs):
     # get_or_create must return (obj, bool), unpack it to ensure that
     obj, created = __call_api_method(cls, service, 'get_or_create', endpoint_name, True, **kwargs)
     assert isinstance(created, bool), '%r did not return a boolean for param "created"' % service.get_or_create
-    return obj, created
+    return obj[0], created
 
 
 def update(cls, service, endpoint_name=None, **kwargs):
     """ Performs an update matching the given arguments. """
-    return __call_api_method(cls, service, 'update', endpoint_name, False, **kwargs)
+    return __call_api_method(cls, service, 'update', endpoint_name, False, **kwargs)[0]
