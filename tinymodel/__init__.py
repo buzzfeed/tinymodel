@@ -28,8 +28,9 @@ class FieldDef(object):
 
     """
 
-    def __init__(self, title, required=True, validate=True, allowed_types=None,
-                 relationship='attribute', calculated=None, default_value=None, choices=[]):
+    def __init__(self, title, required=False, validate=True, allowed_types=None,
+                 relationship='attribute', calculated=None, default_value=None, choices=[],
+                 custom_translators={}):
         """
         Creates an instance of a FieldDef object
 
@@ -41,6 +42,9 @@ class FieldDef(object):
                                  Must be one of ['has_one' | 'has_many' | 'attribute']
         :param function calculated: A function to calculate the default value of a field.
                                  This function should take a single argument of type TinyModel
+        :param object default_value: The default value assigned to required fields when they are sent to a data store
+        :param list choices: A list of possible values that a field is constrained to.
+        :param custom_translators: A dict of custom lambda functions that a field can use for to_json, from_json and random
 
         Allowed types are represented by Python class definitions. Valid classes include
         all Python built-in types listed in TinyModel.SUPPORTED_BUILTINS. Also valid are
@@ -72,6 +76,7 @@ class FieldDef(object):
         self.calculated = calculated
         self.default_value = default_value
         self.choices = choices
+        self.custom_translators = custom_translators
 
     def __repr__(self):
         return unicode('<tinymodel.FieldDef "%s">' % self.title)
