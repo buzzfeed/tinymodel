@@ -94,11 +94,16 @@ class MyValidTestModel(TinyModel):
     def __calc_my_default(self):
         return self.my_int + int(self.my_float)
 
+    DATETIME_TRANSLATORS = {'to_json': lambda(obj): 'my_custom_datetime_json',
+                            'from_json': lambda(json_value): datetime.today(),
+                            'random': lambda: datetime.today(),
+                           }
+
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int, long]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str, unicode]),
                   FieldDef(title='my_bool', required=True, validate=True, allowed_types=[bool]),
                   FieldDef(title='my_float', required=True, validate=True, allowed_types=[float]),
-                  FieldDef(title='my_datetime', required=True, validate=True, allowed_types=[datetime]),
+                  FieldDef(title='my_datetime', required=True, validate=True, allowed_types=[datetime], custom_translators=DATETIME_TRANSLATORS),
                   FieldDef(title='my_none', required=True, validate=True, allowed_types=[type(None)]),
                   FieldDef(title='my_multiple_builtin_types', required=True, validate=True, allowed_types=[int, str, bool, float]),
                   FieldDef(title='my_dict', required=True, validate=True, allowed_types=[{str: float}]),

@@ -17,6 +17,11 @@ from tinymodel.internals.json_object import(
 COLLECTION_TYPES = (dict, list, tuple, set)
 SUPPORTED_METHODS = ['to_json', 'from_json', 'random']
 
+DATETIME_TRANSLATORS = {'to_json': lambda obj: obj.replace(microsecond=0).isoformat(),
+                        'from_json': lambda json_value: date_parser.parse(j.loads(json_value)),
+                        'random': lambda: (datetime.utcnow() - timedelta(seconds=r.randrange(2592000))).replace(tzinfo=pytz.utc),
+                       }
+
 SUPPORTED_BUILTINS = {
     type(None): {
         'to_json': lambda this_value: j.dumps(this_value),
@@ -59,9 +64,9 @@ SUPPORTED_BUILTINS = {
         'random': lambda: ''.join(unichr(r.choice([ord(i) for i in ''.join([s.letters, s.digits, ' '])])) for x in range(r.randint(1, 25))).encode("utf-8"),
     },
     datetime: {
-        'to_json': lambda this_value: j.dumps(this_value, default=lambda obj: obj.replace(microsecond=0).isoformat()),
-        'from_json': lambda this_value: date_parser.parse(j.loads(this_value)),
-        'random': lambda: (datetime.utcnow() - timedelta(seconds=r.randrange(2592000))).replace(tzinfo=pytz.utc),
+        'to_json': lambda this_value, custom_translators=DATETIME_TRANSLATORS: j.dumps(this_value, default=custom_translators['to_json']),
+        'from_json': lambda this_value, custom_translators=DATETIME_TRANSLATORS: custom_translators['from_json'](this_value),
+        'random': lambda custom_translators=DATETIME_TRANSLATORS: custom_translators['random'](),
     },
     dict: {
         'to_json': lambda tinymodel, this_value: '{' + ','.join([__field_to_json(tinymodel, key) + ': ' + __field_to_json(tinymodel, value) for (key, value) in this_value.items()]) + '}',

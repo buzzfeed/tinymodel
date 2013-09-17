@@ -29,7 +29,10 @@ def __random_field(tinymodel, this_type, model_recursion_depth=1, this_field_def
         (key_type, value_type) = this_type.items()[0]
         return tinymodel.SUPPORTED_BUILTINS[dict]['random'](tinymodel, key_type, value_type, model_recursion_depth, this_field_def)
     elif this_type in tinymodel.SUPPORTED_BUILTINS:
-        return tinymodel.SUPPORTED_BUILTINS[this_type]['random']()
+        if this_field_def.custom_translators:
+            return tinymodel.SUPPORTED_BUILTINS[this_type]['random'](this_field_def.custom_translators)
+        else:
+            return tinymodel.SUPPORTED_BUILTINS[this_type]['random']()
     else:
         if model_recursion_depth > 0:
             # Assume we are dealing with a valid user-defined type
