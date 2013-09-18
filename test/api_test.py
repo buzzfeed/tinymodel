@@ -6,7 +6,7 @@ from mock import patch, MagicMock
 from nose.tools import assert_raises, ok_, eq_
 from tinymodel import TinyModel, FieldDef, api, defaults
 from tinymodel.service import Service
-from tinymodel.utils import ValidationError, ModelException
+from tinymodel.utils import ModelException
 
 
 class MyTinyModel(TinyModel):
@@ -203,7 +203,7 @@ class APiTest(TestCase):
             'update': {'return_value': MagicMock()},
             'get_or_create': {'return_value': (MagicMock(), random.choice([False, True]))},
         }
-        service_kwargs = {method_name: MagicMock() for method_name in service_methods_kwargs.keys()}
+        service_kwargs = dict([(method_name, MagicMock()) for method_name in service_methods_kwargs.keys()])
         service = Service(**service_kwargs)
         with patch('tinymodel.internals.api.match_field_values'):
             with patch('tinymodel.internals.api.remove_calculated_values'):
@@ -220,8 +220,8 @@ class APiTest(TestCase):
             'update': {'kwargs': {'return_value': MagicMock()}},
             'get_or_create': {'kwargs': {'return_value': (MagicMock(), random.choice([False, True]))}, 'type': tuple},
         }
-        service_kwargs = {method_name: MagicMock(**params['kwargs']) \
-            for method_name, params in service_methods_kwargs.iteritems()}
+        service_kwargs = dict([(method_name, MagicMock(**params['kwargs'])) \
+            for method_name, params in service_methods_kwargs.iteritems()])
         service = Service(return_type='foreign_model', **service_kwargs)
         with patch('tinymodel.internals.api.match_field_values'):
             with patch('tinymodel.internals.api.remove_calculated_values'):
@@ -233,3 +233,31 @@ class APiTest(TestCase):
                         eq_(len(response), len(params['kwargs']['return_value']))
                     else:
                         ok_(not isinstance(response, defaults.COLLECTION_TYPES))
+
+    def test_create_or_update(self):
+        method = MyTinyModel.create_or_update_by
+        find_response = [MagicMock(id=1)]
+        find_empty_response = []
+        service = MagicMock()
+
+        assert_raises(ValueError, method, service, by=['id'])
+        assert_raises(ValueError, method, service, by=[], **{'name': 'test'})
+        assert_raises(ValueError, method, service, by=['id'], **{'name': 'test'})
+
+        with patch('tinymodel.internals.api.find', **{'return_value': find_empty_response}):
+            with patch('tinymodel.internals.api.create') as c1:
+                with patch('tinymodel.internals.api.update') as u1:
+                    params = {'name': 'test', 'id': 1}
+                    MyTinyModel.create_or_update_by(service, by=['id'], **params)
+                    ok_(not u1.called)
+                    ok_(c1.called)
+                    c1.assert_called_with(MyTinyModel, service, None, **params)
+
+        with patch('tinymodel.internals.api.find', **{'return_value': find_response}):
+            with patch('tinymodel.internals.api.create') as c2:
+                with patch('tinymodel.internals.api.update') as u2:
+                    params = {'name': 'test', 'id': 1}
+                    MyTinyModel.create_or_update_by(service, by=['id'], **params)
+                    ok_(u2.called)
+                    u2.assert_called_with(MyTinyModel, service, None, **params)
+                    ok_(not c2.called)
