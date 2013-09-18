@@ -133,6 +133,14 @@ def create(cls, service, endpoint_name=None, **kwargs):
     return __call_api_method(cls, service, 'create', endpoint_name, True, **kwargs)[0]
 
 
+def delete(cls, service, endpoint_name=None, **kwargs):
+    """Performs a delete operation given the passed arguments, ignoring default values."""
+    kwargs = remove_has_many_values(cls, **kwargs)
+    kwargs = remove_datetime_values(cls, **kwargs)
+    kwargs = remove_float_values(cls, **kwargs)
+    return __call_api_method(cls, service, 'delete', endpoint_name, **kwargs)[0]
+
+
 def get_or_create(cls, service, endpoint_name=None, **kwargs):
     """
     Performs a <get_or_create> operation. Optionally <find> and <create> service
