@@ -67,7 +67,10 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
             try:
                 # Did not translate to an allowed type. Cast it back to JSON, find the allowed type, and translate to that.
                 first_usable_type = next(iter([allowed_type for allowed_type in allowed_types]))
-                return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value))
+                if this_field_def.custom_translators:
+                    return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value), this_field_def.custom_translators)
+                else:
+                    return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](j.dumps(json_value))
             except KeyError:
                 # Is an ids field. Just return the value.
                 return json_value
