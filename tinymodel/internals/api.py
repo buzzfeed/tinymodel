@@ -99,17 +99,17 @@ def __call_api_method(cls, service, method_name, endpoint_name=None, set_model_d
         extra_params['offset'] = kwargs.pop('offset')
         extra_params['order_by'] = kwargs.pop('order_by')
 
-    kwargs_ = cls(set_defaults=set_model_defaults, **kwargs).to_json(return_raw=True)
-    kwargs_ = remove_calculated_values(cls, **kwargs_)
+    kwargs = cls(set_defaults=set_model_defaults, **kwargs).to_json(return_raw=True)
+    kwargs = remove_calculated_values(cls, **kwargs)
 
-    match_field_values(cls, **kwargs_)
+    match_field_values(cls, **kwargs)
     if not hasattr(service, method_name):
         raise AttributeError('The given service need a "%s" method!' % method_name)
 
     if endpoint_name is None:
         endpoint_name = inflection.underscore(cls.__name__)
     kwargs.update(extra_params)
-    response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs_)
+    response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
     response, alien_params = __get_resp_with_alien_params(response)
     return render_to_response(cls, response, service.return_type, *alien_params)
 
@@ -152,3 +152,15 @@ def get_or_create(cls, service, endpoint_name=None, **kwargs):
 def update(cls, service, endpoint_name=None, **kwargs):
     """ Performs an update matching the given arguments. """
     return __call_api_method(cls, service, 'update', endpoint_name, False, **kwargs)[0]
+
+
+def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):
+    kwargs_find = filter(lambda (k, v): k in by, kwargs.iteritems())
+    if not kwargs_find:
+        raise ValueError("Missing values for 'by' parameter.")
+    found_objects = find(cls=cls, service=service, endpoint_name=endpoint_name, **dict(kwargs_find))
+    if found_objects:
+        kwargs_update = list(set(kwargs.items()) - set(kwargs_find))
+        kwargs_update.append(('id', found_objects[0].id))
+        return update(cls, service, endpoint_name, **dict(kwargs_update))
+    return create(cls, service, endpoint_name, **kwargs)
