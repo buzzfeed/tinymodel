@@ -144,6 +144,26 @@ class APiTest(TestCase):
                 assert_raises(ModelException, MyTinyModel.create, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
+    def test_delete(self):
+        service = Service(delete=MagicMock())
+        with patch('tinymodel.internals.api.match_field_values'):
+            with patch('tinymodel.internals.api.render_to_response') as rendered1:
+                MyTinyModel.delete(service, **self.TEST_DEFAULT_PARAMS)
+                ok_(rendered1.called)
+
+            with patch('tinymodel.internals.api.render_to_response') as rendered2:
+                MyTinyModel.delete(service, **self.VALID_PARAMS)
+                ok_(rendered2.called)
+
+        with patch('tinymodel.internals.api.render_to_response') as rendered3:
+            assert_raises(ModelException, MyTinyModel.delete, service, **self.INVALID_PARAMS)
+            ok_(not rendered3.called)
+
+        with patch('tinymodel.internals.api.render_to_response') as rendered4:
+            with patch('tinymodel.internals.api.match_field_values'):
+                assert_raises(ModelException, MyTinyModel.delete, service, **self.INVALID_PARAMS)
+                ok_(not rendered4.called)
+
     def test_update(self):
         service = Service(update=MagicMock())
         with patch('tinymodel.internals.api.match_field_values'):
@@ -201,6 +221,7 @@ class APiTest(TestCase):
             'find': {'return_value': [MagicMock()] * 3},
             'create': {'return_value': MagicMock()},
             'update': {'return_value': MagicMock()},
+            'delete': {'return_value': MagicMock()},
             'get_or_create': {'return_value': (MagicMock(), random.choice([False, True]))},
         }
         service_kwargs = dict([(method_name, MagicMock()) for method_name in service_methods_kwargs.keys()])
@@ -215,9 +236,10 @@ class APiTest(TestCase):
 
     def test_api_methods_response(self):
         service_methods_kwargs = {
-            'find': {'kwargs': {'return_value': [MagicMock()] * 3}, 'type': list,},
+            'find': {'kwargs': {'return_value': [MagicMock()] * 3}, 'type': list},
             'create': {'kwargs': {'return_value': MagicMock()}},
             'update': {'kwargs': {'return_value': MagicMock()}},
+            'delete': {'kwargs': {'return_value': MagicMock()}},
             'get_or_create': {'kwargs': {'return_value': (MagicMock(), random.choice([False, True]))}, 'type': tuple},
         }
         service_kwargs = dict([(method_name, MagicMock(**params['kwargs'])) \

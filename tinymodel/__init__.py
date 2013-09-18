@@ -142,6 +142,7 @@ class TinyModel(object):
     get_or_create = classmethod(api.get_or_create)
     update = classmethod(api.update)
     create_or_update_by = classmethod(api.create_or_update_by)
+    delete = classmethod(api.delete)
 
     def __str__(self):
         """
