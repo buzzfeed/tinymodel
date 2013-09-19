@@ -162,5 +162,5 @@ def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):
     if found_objects:
         kwargs_update = list(set(kwargs.items()) - set(kwargs_find))
         kwargs_update.append(('id', found_objects[0].id))
-        return update(cls, service, endpoint_name, **dict(kwargs_update))
-    return create(cls, service, endpoint_name, **kwargs)
+        return update(cls, service, endpoint_name, **dict(kwargs_update)), False
+    return create(cls, service, endpoint_name, **kwargs), True
