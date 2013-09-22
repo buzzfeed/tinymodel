@@ -144,7 +144,7 @@ class TinyModel(object):
     create_or_update_by = classmethod(api.create_or_update_by)
     delete = classmethod(api.delete)
 
-    def __str__(self):
+    def __repr__(self):
         """
         Override print method for model
 
