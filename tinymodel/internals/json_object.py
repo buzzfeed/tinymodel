@@ -47,16 +47,17 @@ def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None)
         first_usable_type = next((t for t in allowed_types if (issubclass(t, type(tinymodel).__bases__[0]) or t in set(tinymodel.SUPPORTED_BUILTINS) - set(tinymodel.COLLECTION_TYPES))), None)
         if first_usable_type:
             if issubclass(first_usable_type, type(tinymodel).__bases__[0]):
-                try:
-                    return first_usable_type(from_json=json_value)
-                except ValueError:
-                    raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by ModelField.allowed_types")
-                    return None
-            json_value = '"' + json_value + '"'
+                return first_usable_type(from_json=json_value)
+            json_value = j.dumps(json_value)
             if this_field_def.custom_translators:
                 return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](json_value, this_field_def.custom_translators)
             else:
-                return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](json_value)
+                try:
+                    return tinymodel.SUPPORTED_BUILTINS[first_usable_type]['from_json'](json_value)
+                except ValueError:
+                    print "ERROR TRYING TO DECODE:", repr(json_value)
+                    raise
+
         else:
             raise ModelException("from_json translation error in " + this_field_def.title + " field: JSON 'string | number | true | false | null' type not supported by FieldDef.allowed_types")
     else:
