@@ -7,6 +7,7 @@ from tinymodel.internals.validation import (
     remove_float_values,
     remove_datetime_values,
     validate_order_by,
+    validate_fuzzy_fields,
 )
 
 
@@ -80,7 +81,8 @@ def __get_resp_with_alien_params(response):
     return response, alien_params
 
 
-def __call_api_method(cls, service, method_name, endpoint_name=None, set_model_defaults=False, **kwargs):
+def __call_api_method(cls, service, method_name, endpoint_name=None,
+                      set_model_defaults=False, **kwargs):
     """
     Calls a generic method from the given class using the given params.
 
@@ -99,22 +101,31 @@ def __call_api_method(cls, service, method_name, endpoint_name=None, set_model_d
         extra_params['offset'] = kwargs.pop('offset')
         extra_params['order_by'] = kwargs.pop('order_by')
 
+        if kwargs.get('fuzzy'):
+            validate_fuzzy_fields(cls, kwargs.get('fuzzy'))
+        extra_params['fuzzy'] = kwargs.pop('fuzzy')
+        extra_params['fuzzy_match_exclude'] = kwargs.pop('fuzzy_match_exclude')
+
     kwargs = cls(set_defaults=set_model_defaults, **kwargs).to_json(return_raw=True)
     kwargs = remove_calculated_values(cls, **kwargs)
-
     match_field_values(cls, **kwargs)
+
     if not hasattr(service, method_name):
         raise AttributeError('The given service need a "%s" method!' % method_name)
 
     if endpoint_name is None:
         endpoint_name = inflection.underscore(cls.__name__)
     kwargs.update(extra_params)
-    response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
+    if method_name == 'find':
+        response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
+    else:
+        response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
     response, alien_params = __get_resp_with_alien_params(response)
     return render_to_response(cls, response, service.return_type, *alien_params)
 
 
-def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={}, **kwargs):
+def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
+         fuzzy=[], fuzzy_match_exclude=[], **kwargs):
     """ Performs a search operation given the passed arguments. """
     kwargs = remove_has_many_values(cls, **kwargs)
     kwargs = remove_datetime_values(cls, **kwargs)
@@ -123,7 +134,9 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
     kwargs.update({
         'offset': offset,
         'limit': limit,
-        'order_by': order_by
+        'order_by': order_by,
+        'fuzzy': fuzzy,
+        'fuzzy_match_exclude': fuzzy_match_exclude,
     })
     return __call_api_method(cls, service, 'find', endpoint_name, False, **kwargs)[0]
 
@@ -151,10 +164,10 @@ def get_or_create(cls, service, endpoint_name=None, **kwargs):
         if found:
             return found[0], False
         return create(cls, service, endpoint_name, **kwargs), True
-    # get_or_create must return (obj, bool), unpack it to ensure that
-    obj, created = __call_api_method(cls, service, 'get_or_create', endpoint_name, True, **kwargs)
-    assert isinstance(created, bool), '%r did not return a boolean for param "created"' % service.get_or_create
-    return obj[0], created
+    else:
+        obj, created = __call_api_method(cls, service, 'get_or_create', endpoint_name, True, **kwargs)
+        assert isinstance(created, bool), '%r did not return a boolean for param "created"' % service.get_or_create
+        return obj[0], created
 
 
 def update(cls, service, endpoint_name=None, **kwargs):

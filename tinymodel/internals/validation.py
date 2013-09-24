@@ -176,6 +176,16 @@ def validate_order_by(cls, order_by):
             raise ValidationError(str(value) + " is not a valid ordering option, valid options are: " + str(ORDER_BY_VALUES))
 
 
+def validate_fuzzy_fields(cls, fields=[]):
+    fuzzy_fields = filter(lambda f: f.title in fields, cls.FIELD_DEFS)
+    if not fuzzy_fields:
+        raise ValidationError('One or more fields indicated for fuzzy search, is not a field of %r' % cls)
+    allowed_types = set([unicode, str])
+    for field_def in fuzzy_fields:
+        if not set(field_def.allowed_types) & allowed_types:
+            raise ValidationError('%r is not a text field. Field not compatible with fuzzy search!' % field_def.title)
+
+
 remove_calculated_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.calculated, **kwargs)
 remove_has_many_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.relationship == 'has_many', **kwargs)
 remove_datetime_values = lambda cls, **kwargs: __remove_values(cls, lambda f: datetime in f.allowed_types, **kwargs)
