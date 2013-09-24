@@ -101,10 +101,13 @@ def __call_api_method(cls, service, method_name, endpoint_name=None,
         extra_params['offset'] = kwargs.pop('offset')
         extra_params['order_by'] = kwargs.pop('order_by')
 
+    if method_name in ('find', 'get_or_create'):
         if kwargs.get('fuzzy'):
             validate_fuzzy_fields(cls, kwargs.get('fuzzy'))
-        extra_params['fuzzy'] = kwargs.pop('fuzzy')
-        extra_params['fuzzy_match_exclude'] = kwargs.pop('fuzzy_match_exclude')
+        if 'fuzzy' in kwargs:
+            extra_params['fuzzy'] = kwargs.pop('fuzzy')
+        if 'fuzzy_match_exclude' in kwargs:
+            extra_params['fuzzy_match_exclude'] = kwargs.pop('fuzzy_match_exclude')
 
     kwargs = cls(set_defaults=set_model_defaults, **kwargs).to_json(return_raw=True)
     kwargs = remove_calculated_values(cls, **kwargs)
