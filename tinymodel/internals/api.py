@@ -1,4 +1,5 @@
 import inflection
+import json
 from tinymodel.internals import defaults
 from tinymodel.internals.validation import (
     match_field_values,
@@ -11,7 +12,7 @@ from tinymodel.internals.validation import (
 )
 
 
-def render_to_response(cls, response, return_type='json', *alien_params):
+def __render_response(cls, response, return_type='json'):
     """
     Translates the given response into one or more TinyModel isntances
     based on the expected type of response.
@@ -19,69 +20,37 @@ def render_to_response(cls, response, return_type='json', *alien_params):
     :param tinymodel.TinyModel cls: The base class to translate the response to.
     :param [json|tinymodel.TinyModel|foreign_model] response: The response to translates
     :param string return_type: The expected type of the response. Must be one of [tinymodel|foreign_model|json]
-    :param list alien_params: A list of params that need to be carried from the initial response to the final response.
             These are meant to be ignored by this function and returned as is.
 
     :rtype [tinymodel.TinyModel|list(tinymodel.TinyModel)]: The translated response.
 
     """
-    from tinymodel.service import Service
-    if return_type not in Service.ALLOWED_RETURN_TYPES:
-        raise ValueError('"%r" is not a valid return type for services. '
-            'Allowed types are: %s' % Service.ALLOWED_RETURN_TYPES)
-
-    is_list = True
+    from tinymodel import TinyModel, TinyModelList
     if return_type == 'tinymodel':
-        if not isinstance(response, (list, tuple, set)):
-            is_list = False
-            response = [response]
-        for o in response:
-            if not isinstance(o, cls):
-                raise TypeError('%r does not match the expected response type "tinymodel"' % o)
-
+        if not isinstance(response, TinyModelList) and isinstance(response, TinyModel):
+            response = TinyModelList(model_class=cls, data=[response.to_json(return_dict=True)])
+        else:
+            raise TypeError('Response is a %s but we expected a TinyModel or TinyModelList' % type(response))
     elif return_type == 'foreign_model':
         if not isinstance(response, (list, tuple, set)):
-            is_list = False
             response = [response]
-        for o in response:
-            if type(o) in (defaults.SUPPORTED_BUILTINS.keys() + list(defaults.COLLECTION_TYPES)):
-                raise TypeError('Response is not a foreign model, it is of built-in type %r' % type(o))
-            elif issubclass(type(o), cls.__bases__[0]):
-                raise TypeError('Response is not a foreign model, it is of type %r' % cls.__bases__[0])
-        response = [cls(from_foreign_model=o) for o in response]
-
+        response = TinyModelList(model_class=cls, data=[resp.__dict__ for resp in response])
     elif return_type == 'json':
-        if isinstance(response, (list, tuple, set)):
-            response = [cls(from_json=o) for o in response]
-        else:
-            is_list = False
-            response = [cls(from_json=response)]
+        try:
+            response = json.loads(response)
+        except (ValueError, TypeError):
+            pass
+        if not isinstance(response, list):
+            response = [response]
+        response = TinyModelList(model_class=cls, data=response)
+    else:
+        raise ValueError("'%s' is not a valid return type descriptor.\n"
+                         "Allowed values are 'tinymodel', 'foreign_model' and 'json'" % return_type)
 
-    response = [response] if is_list else response
-    response.extend(alien_params)
     return response
 
 
-def __get_resp_with_alien_params(response):
-    alien_params = []
-    if response and isinstance(response, (list, tuple, set)):
-        response = list(response)
-        response, extra = response[:1], response[1:]
-        part_of_response = []
-
-        if extra:
-            resptype = type(response[0])
-            for o in extra:
-                if isinstance(o, resptype):
-                    part_of_response.append(o)
-                else:
-                    alien_params.append(o)
-        response.extend(part_of_response)
-
-    return response, alien_params
-
-
-def __call_api_method(cls, service, method_name, endpoint_name=None,
+def __call_service_method(cls, service, method_name, endpoint_name=None,
                       set_model_defaults=False, **kwargs):
     """
     Calls a generic method from the given class using the given params.
@@ -119,12 +88,8 @@ def __call_api_method(cls, service, method_name, endpoint_name=None,
     if endpoint_name is None:
         endpoint_name = inflection.underscore(cls.__name__)
     kwargs.update(extra_params)
-    if method_name == 'find':
-        response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
-    else:
-        response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
-    response, alien_params = __get_resp_with_alien_params(response)
-    return render_to_response(cls, response, service.return_type, *alien_params)
+    response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
+    return __render_response(cls, response, service.return_type)
 
 
 def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
@@ -141,12 +106,12 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
         'fuzzy': fuzzy,
         'fuzzy_match_exclude': fuzzy_match_exclude,
     })
-    return __call_api_method(cls, service, 'find', endpoint_name, False, **kwargs)[0]
+    return __call_service_method(cls, service, 'find', endpoint_name, False, **kwargs)[0]
 
 
 def create(cls, service, endpoint_name=None, **kwargs):
     """ Performs a create operation given the passed arguments, ignoring default values. """
-    return __call_api_method(cls, service, 'create', endpoint_name, True, **kwargs)[0]
+    return __call_service_method(cls, service, 'create', endpoint_name, True, **kwargs)[0]
 
 
 def delete(cls, service, endpoint_name=None, **kwargs):
@@ -154,28 +119,23 @@ def delete(cls, service, endpoint_name=None, **kwargs):
     kwargs = remove_has_many_values(cls, **kwargs)
     kwargs = remove_datetime_values(cls, **kwargs)
     kwargs = remove_float_values(cls, **kwargs)
-    return __call_api_method(cls, service, 'delete', endpoint_name, **kwargs)[0]
+    return __call_service_method(cls, service, 'delete', endpoint_name, **kwargs)[0]
 
 
 def get_or_create(cls, service, endpoint_name=None, **kwargs):
     """
-    Performs a <get_or_create> operation. Optionally <find> and <create> service
-    methods may be used instead of a service-specific <get_or_create>
+    Performs a get_or_create operation.
+
     """
-    if hasattr(service, 'find') and hasattr(service, 'create') and not hasattr(service, 'get_or_create'):
-        found = find(cls, service, endpoint_name, **kwargs)
-        if found:
-            return found[0], False
-        return create(cls, service, endpoint_name, **kwargs), True
-    else:
-        obj, created = __call_api_method(cls, service, 'get_or_create', endpoint_name, True, **kwargs)
-        assert isinstance(created, bool), '%r did not return a boolean for param "created"' % service.get_or_create
-        return obj[0], created
+    found = find(cls, service, endpoint_name, **kwargs)
+    if found:
+        return found[0], False
+    return create(cls, service, endpoint_name, **kwargs), True
 
 
 def update(cls, service, endpoint_name=None, **kwargs):
     """ Performs an update matching the given arguments. """
-    return __call_api_method(cls, service, 'update', endpoint_name, False, **kwargs)[0]
+    return __call_service_method(cls, service, 'update', endpoint_name, False, **kwargs)[0]
 
 
 def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):

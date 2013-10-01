@@ -322,3 +322,85 @@ class TinyModel(object):
             delattr(copy_of_self, field)
 
         return copy_of_self
+
+class TinyModelList(TinyModel, list):
+    """
+    An abstract class which represents a list of TinyModels.
+    This is used for optimization of lookups, when more than one TinyModel is returned.
+
+    We replicate the interface for a standard Python list by overloading the list operators
+
+    """
+
+    def __init__(self, model_class, data):
+        """
+        Initializes an instance of TinyModelList with some initial data array.
+
+        :param list(dict) data: A list of dicts whose keys are assumed to match the TinyModel field names
+        :param TinyModel model_class: A TinyModel class definition
+
+        """
+        self.__DATA__ = initial_data
+        self.iteration_marker = 0
+        model_class.__init__(self)
+
+    def __iter__(self):
+        """
+        Allows for an iteration context
+
+        """
+        return self
+
+    def __next__(self):
+        """
+        Behavior when in an iteration context.
+
+        The TinyModelList returns itself with the FIELDS values replaced
+
+        """
+        if not self.__DATA__ or self.iteration_marker > len(self.__DATA__):
+            raise StopIteration
+        for key, val in __DATA__[iteration_marker].items():
+            setattr(self, key, val)
+        iteration_marker += 1
+        return self
+
+    def __getitem__(self, index):
+        """
+        Behavior when in a list context
+
+        Looks up an item or slice in the __DATA__ array by index and returns a TinyModel with the result
+
+        :param <int | long | slice> index: An integer index, or a slice object
+
+        """
+        if isinstance(index, slice):
+            return TinyModelList(data=self.__DATA__[index])
+        else:
+            return TinyModel(**self.__DATA__[index])
+
+    def __setitem__(self, index, value):
+        """
+        Adds a TinyModel object or slice to a TinyModelList
+
+        :param <int | long | slice> index: An integer index, or a slice object
+        :param obj val: The object to add, but we raise an Error if it's not a TinyModel
+
+        """
+        if isinstance(index, slice):
+            if not all(isinstance(val, TinyModel) for val in value):
+                raise Exception("Can only assign a slice of TinyModels to a TinyModelList")
+            self.__DATA__[index] = [val.to_json(return_dict=True) for val in value]
+        else:
+            if not isinstance(val, TinyModel):
+                raise Exception("Can only add a TinyModel to a TinyModelList")
+            self.__DATA__[index] = value.to_json(return_dict=True)
+
+    def __delitem__(self, index):
+        """
+        Removes an item or slice from the __DATA__ array
+
+        :param <int | long | slice> index: An integer index, or a slice object
+
+        """
+        del(__DATA__[index])
