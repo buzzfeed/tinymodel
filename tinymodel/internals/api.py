@@ -12,7 +12,7 @@ from tinymodel.internals.validation import (
 )
 
 
-def __render_response(cls, response, return_type='json'):
+def render_response(cls, response, return_type='json'):
     """
     Translates the given response into one or more TinyModel isntances
     based on the expected type of response.
@@ -27,22 +27,19 @@ def __render_response(cls, response, return_type='json'):
     """
     from tinymodel import TinyModel, TinyModelList
     if return_type == 'tinymodel':
-        if not isinstance(response, TinyModelList) and isinstance(response, TinyModel):
-            response = TinyModelList(model_class=cls, data=[response.to_json(return_dict=True)])
-        else:
+        if isinstance(response, TinyModel) and not isinstance(response, TinyModelList):
+            response = TinyModelList(klass=cls, data=[response.to_json(return_dict=True)])
+        elif not isinstance(response, TinyModelList):
             raise TypeError('Response is a %s but we expected a TinyModel or TinyModelList' % type(response))
     elif return_type == 'foreign_model':
         if not isinstance(response, (list, tuple, set)):
             response = [response]
-        response = TinyModelList(model_class=cls, data=[resp.__dict__ for resp in response])
+        response = TinyModelList(klass=cls, data=[resp.__dict__ for resp in response])
     elif return_type == 'json':
-        try:
-            response = json.loads(response)
-        except (ValueError, TypeError):
-            pass
+        response = json.loads(response)
         if not isinstance(response, list):
             response = [response]
-        response = TinyModelList(model_class=cls, data=response)
+        response = TinyModelList(klass=cls, data=response)
     else:
         raise ValueError("'%s' is not a valid return type descriptor.\n"
                          "Allowed values are 'tinymodel', 'foreign_model' and 'json'" % return_type)
@@ -89,7 +86,7 @@ def __call_service_method(cls, service, method_name, endpoint_name=None,
         endpoint_name = inflection.underscore(cls.__name__)
     kwargs.update(extra_params)
     response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
-    return __render_response(cls, response, service.return_type)
+    return render_response(cls, response, service.return_type)
 
 
 def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
@@ -106,7 +103,8 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
         'fuzzy': fuzzy,
         'fuzzy_match_exclude': fuzzy_match_exclude,
     })
-    return __call_service_method(cls, service, 'find', endpoint_name, False, **kwargs)[0]
+    response = __call_service_method(cls, service, 'find', endpoint_name, False, **kwargs)
+    return response
 
 
 def create(cls, service, endpoint_name=None, **kwargs):
@@ -144,7 +142,7 @@ def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):
         raise ValueError("Missing values for 'by' parameter.")
     found_objects = find(cls=cls, service=service, endpoint_name=endpoint_name, **dict(kwargs_find))
     if found_objects:
-        kwargs_update = list(set(kwargs.items()) - set(kwargs_find))
+        kwargs_update = filter(lambda (k, v): k not in by, kwargs.iteritems())
         kwargs_update.append(('id', found_objects[0].id))
         return update(cls, service, endpoint_name, **dict(kwargs_update)), False
     return create(cls, service, endpoint_name, **kwargs), True

@@ -243,16 +243,18 @@ class TinyModel(object):
                                Values are not validated until you call Model.validate()
 
         """
-        super(TinyModel, self).__setattr__('FIELDS', [])
-        super(TinyModel, self).__setattr__('VALIDATION_FAILURES', [])
-        super(TinyModel, self).__setattr__('JSON_FAILURES', [])
-        super(TinyModel, self).__setattr__('REMOVED_FIELDS', [])
+        object.__setattr__(self, 'FIELDS', [])
+        object.__setattr__(self, 'VALIDATION_FAILURES', [])
+        object.__setattr__(self, 'JSON_FAILURES', [])
+        object.__setattr__(self, 'REMOVED_FIELDS', [])
 
         # set supported methods and builtins
-        if not getattr(self, 'SUPPORTED_METHODS', False):
-            super(TinyModel, self).__setattr__('SUPPORTED_METHODS', defaults.SUPPORTED_METHODS)
-        if not getattr(self, 'SUPPORTED_BUILTINS', False):
-            super(TinyModel, self).__setattr__('SUPPORTED_BUILTINS', defaults.SUPPORTED_BUILTINS)
+        if not hasattr(self, 'SUPPORTED_METHODS'):
+            object.__setattr__(self, 'SUPPORTED_METHODS', defaults.SUPPORTED_METHODS)
+        if not hasattr(self, 'SUPPORTED_BUILTINS'):
+            object.__setattr__(self, 'SUPPORTED_BUILTINS', defaults.SUPPORTED_BUILTINS)
+        if not hasattr(self, 'FIELD_DEFS') and kwargs.get('FIELD_DEFS', None):
+            object.__setattr__(self, 'FIELD_DEFS', kwargs.pop('FIELD_DEFS'))
 
         # validate model definition if it hasn't been already
         if type(self) not in self.VALIDATED_CLASSES:
@@ -323,7 +325,7 @@ class TinyModel(object):
 
         return copy_of_self
 
-class TinyModelList(TinyModel, list):
+class TinyModelList(TinyModel):
     """
     An abstract class which represents a list of TinyModels.
     This is used for optimization of lookups, when more than one TinyModel is returned.
@@ -332,17 +334,27 @@ class TinyModelList(TinyModel, list):
 
     """
 
-    def __init__(self, model_class, data):
+    def __repr__(self):
+        representation = {
+                'klass': object.__getattribute__(self, 'klass'),
+                'iteration_marker': object.__getattribute__(self, 'iteration_marker'),
+                'data': object.__getattribute__(self, '__DATA__'),
+        }
+        return str(type(self)) + ":\n" + pformat(representation)
+
+    def __init__(self, klass, data):
         """
         Initializes an instance of TinyModelList with some initial data array.
 
         :param list(dict) data: A list of dicts whose keys are assumed to match the TinyModel field names
-        :param TinyModel model_class: A TinyModel class definition
+        :param TinyModel klass: A TinyModel class definition
 
         """
-        self.__DATA__ = initial_data
-        self.iteration_marker = 0
-        model_class.__init__(self)
+        object.__setattr__(self, '__DATA__', data)
+        object.__setattr__(self, 'iteration_marker', 0)
+        object.__setattr__(self, 'klass', klass)
+        object.__setattr__(self, 'FIELD_DEFS', klass.FIELD_DEFS)
+        TinyModel.__init__(self)
 
     def __iter__(self):
         """
@@ -351,19 +363,15 @@ class TinyModelList(TinyModel, list):
         """
         return self
 
-    def __next__(self):
+    def __setattr__(self, key, value):
         """
-        Behavior when in an iteration context.
-
-        The TinyModelList returns itself with the FIELDS values replaced
+        If we're setting something, remember to record the value back to __DATA__
 
         """
-        if not self.__DATA__ or self.iteration_marker > len(self.__DATA__):
-            raise StopIteration
-        for key, val in __DATA__[iteration_marker].items():
-            setattr(self, key, val)
-        iteration_marker += 1
-        return self
+        data = object.__getattribute__(self, '__DATA__')
+        iteration_marker = object.__getattribute__(self, 'iteration_marker') - 1
+        data[iteration_marker][key] = value
+        TinyModel.__setattr__(self, key, value)
 
     def __getitem__(self, index):
         """
@@ -374,10 +382,12 @@ class TinyModelList(TinyModel, list):
         :param <int | long | slice> index: An integer index, or a slice object
 
         """
+        data = object.__getattribute__(self, '__DATA__')
+        klass = object.__getattribute__(self, 'klass')
         if isinstance(index, slice):
-            return TinyModelList(data=self.__DATA__[index])
+            return TinyModelList(klass=klass, data=data[index])
         else:
-            return TinyModel(**self.__DATA__[index])
+            return self.klass(**data[index])
 
     def __setitem__(self, index, value):
         """
@@ -387,14 +397,16 @@ class TinyModelList(TinyModel, list):
         :param obj val: The object to add, but we raise an Error if it's not a TinyModel
 
         """
+        data = object.__getattribute__(self, '__DATA__')
+        klass = object.__getattribute__(self, 'klass')
         if isinstance(index, slice):
-            if not all(isinstance(val, TinyModel) for val in value):
-                raise Exception("Can only assign a slice of TinyModels to a TinyModelList")
-            self.__DATA__[index] = [val.to_json(return_dict=True) for val in value]
+            if not all(isinstance(val, klass) for val in value):
+                raise Exception("Can only assign a slice of " + klass.__name__ + " to this TinyModelList")
+            data[index] = [val.to_json(return_dict=True) for val in value]
         else:
-            if not isinstance(val, TinyModel):
-                raise Exception("Can only add a TinyModel to a TinyModelList")
-            self.__DATA__[index] = value.to_json(return_dict=True)
+            if not isinstance(value, klass):
+                raise Exception("Can only assign a " + klass.__name__ + " to this TinyModelList")
+            data[index] = value.to_json(return_dict=True)
 
     def __delitem__(self, index):
         """
@@ -403,4 +415,70 @@ class TinyModelList(TinyModel, list):
         :param <int | long | slice> index: An integer index, or a slice object
 
         """
-        del(__DATA__[index])
+        data = object.__getattribute__(self, '__DATA__')
+        del(data[index])
+
+    def __add__(self, other):
+        """
+        Overloads the list concatenation operator
+
+        """
+        if not isinstance(other, TinyModelList):
+            raise Exception("Can only concatenate a TinyModelList to another TinyModelList")
+
+        self_data = object.__getattribute__(self, '__DATA__')
+        self_klass = object.__getattribute__(self, 'klass')
+        other_data = object.__getattribute__(self, '__DATA__')
+        other_klass = object.__getattribute__(self, 'klass')
+
+        if self_klass != other_klass:
+            raise Exception("Cannot concatenate two TinyModelLists of different klasses: " + str(self_klass) + ", " + str(other_klass))
+
+        return TinyModelList(klass=self_klass, data=self_data + other_data)
+
+    def __len__(self):
+        """
+        Overloads the list length operator
+
+        """
+        self_data = object.__getattribute__(self, '__DATA__')
+        return len(self_data)
+
+    def append(self, value):
+        """
+        Overloads the list append operation
+
+        """
+        data = object.__getattribute__(self, '__DATA__')
+        klass = object.__getattribute__(self, 'klass')
+        if not isinstance(value, klass):
+            raise Exception("Can only add a " + klass.__name__ + " to this TinyModelList")
+        data.append(value.to_json(return_dict=True))
+
+    def extend(self, value):
+        """
+        Overloads the list extend operation
+
+        """
+        data = object.__getattribute__(self, '__DATA__')
+        klass = object.__getattribute__(self, 'klass')
+        if not isinstance(value, list) or not all(isinstance(val, klass) for val in value):
+            raise Exception("Can only extend this TinyModelList with a list of " + klass.__name__)
+        data.extend([val.to_json(return_dict=True) for val in value])
+
+    def next(self):
+        """
+        Behavior when in an iteration context.
+
+        The TinyModelList returns itself with the FIELDS values replaced
+
+        """
+        data = object.__getattribute__(self, '__DATA__')
+        klass = object.__getattribute__(self, 'klass')
+        iteration_marker = object.__getattribute__(self, 'iteration_marker')
+        if not(data) or iteration_marker >= len(data):
+            raise StopIteration
+        for key, val in data[iteration_marker].items():
+            TinyModel.__setattr__(self, key, val)
+        object.__setattr__(self, 'iteration_marker', iteration_marker + 1)
+        return self
