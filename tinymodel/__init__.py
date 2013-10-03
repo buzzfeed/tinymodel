@@ -274,12 +274,12 @@ class TinyModel(object):
 
         # add fields for initial values, and set them. including relationship support fields
         for (key, value) in initial_attributes.items():
-            setattr(self, key, value)
+            TinyModel.__setattr__(self, key, value)
         if set_defaults:
             # set default values for fields not passed
             for this_field_def in set(self.FIELD_DEFS) - set(f.field_def for f in self.FIELDS):
                 if this_field_def.has_valid_default_value() and not this_field_def.title in ['id']:  # if not, let it raise an Exception, warning about missing data
-                    setattr(self, this_field_def.title, this_field_def.default_value)
+                    TinyModel.__setattr__(self, this_field_def.title, this_field_def.default_value)
 
     __from_json = json_object.from_json
     __from_foreign_model = foreign_object.from_foreign_model
@@ -310,14 +310,14 @@ class TinyModel(object):
         for field in copy_of_self.FIELDS:
             try:
                 if field.field_def.relationship == 'has_one' and not field.is_id_field:
-                    setattr(copy_of_self, field.field_def.title + "_id", field.value.id)
+                    TinyModel.__setattr__(copy_of_self, field.field_def.title + "_id", field.value.id)
                     fields_to_remove.append(field.field_def.title)
                 if field.field_def.relationship == 'has_many' and not field.is_id_field:
-                    setattr(copy_of_self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
+                    TinyModel.__setattr__(copy_of_self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
                     fields_to_remove.append(field.field_def.title)
             except AttributeError:
                 if field.field_def.relationship == 'has_one' and not field.is_id_field and field.value:
-                    setattr(copy_of_self, field.field_def.title + "_id", field.value)
+                    TinyModel.__setattr__(copy_of_self, field.field_def.title + "_id", field.value)
                     fields_to_remove.append(field.field_def.title)
 
         for field in fields_to_remove:
@@ -325,7 +325,7 @@ class TinyModel(object):
 
         return copy_of_self
 
-class TinyModelList(TinyModel):
+class TinyModelList(TinyModel, list):
     """
     An abstract class which represents a list of TinyModels.
     This is used for optimization of lookups, when more than one TinyModel is returned.
@@ -410,13 +410,23 @@ class TinyModelList(TinyModel):
 
     def __delitem__(self, index):
         """
-        Removes an item or slice from the __DATA__ array
+        Removes an item from the __DATA__ array
 
         :param <int | long | slice> index: An integer index, or a slice object
 
         """
         data = object.__getattribute__(self, '__DATA__')
         del(data[index])
+
+    def __delslice__(self, start_index, end_index):
+        """
+        Removes a slice from the __DATA__ array
+
+        :param <int | long | slice> index: An integer index, or a slice object
+
+        """
+        data = object.__getattribute__(self, '__DATA__')
+        del(data[start_index:end_index])
 
     def __add__(self, other):
         """

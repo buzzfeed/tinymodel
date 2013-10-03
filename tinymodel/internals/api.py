@@ -36,7 +36,8 @@ def render_response(cls, response, return_type='json'):
             response = [response]
         response = TinyModelList(klass=cls, data=[resp.__dict__ for resp in response])
     elif return_type == 'json':
-        response = json.loads(response)
+        if isinstance(response, (str, unicode)):
+            response = json.loads(response)
         if not isinstance(response, list):
             response = [response]
         response = TinyModelList(klass=cls, data=response)
