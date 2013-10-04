@@ -131,7 +131,6 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
          fuzzy=[], fuzzy_match_exclude=[], **kwargs):
     """ Performs a search operation given the passed arguments. """
     kwargs = remove_has_many_values(cls, **kwargs)
-    kwargs = remove_datetime_values(cls, **kwargs)
     kwargs = remove_float_values(cls, **kwargs)
     validate_order_by(cls, order_by)
     kwargs.update({
