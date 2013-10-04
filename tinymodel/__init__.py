@@ -143,6 +143,7 @@ class TinyModel(object):
     update = classmethod(api.update)
     create_or_update_by = classmethod(api.create_or_update_by)
     delete = classmethod(api.delete)
+    sum = classmethod(api.sum)
 
     def __repr__(self):
         """

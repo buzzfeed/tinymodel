@@ -103,8 +103,14 @@ def __match_field_value(cls, name, value):
                         long(v)
                     except ValueError:
                         raise new_validation_error(value, name, '[list(int|long,str|unicode), tuple(int|long,str|unicode)], set(int|long,str|unicode)')
+
         else:
-            field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
+            try:
+                field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
+            except IndexError:
+                # name can be fk with '_id' at the end
+                field_def = filter(lambda f: f.title == name[:-3], cls.FIELD_DEFS)[0]
+
             for index, allowed_type in enumerate(field_def.allowed_types):
                 field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
             valid_allowed_types = [x for x in field_def.allowed_types if isinstance(x, value_type)]
