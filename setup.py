@@ -9,7 +9,7 @@ except ImportError:
 
 setup(
     name='tinymodel',
-    version='0.0.20',
+    version='0.0.21',
     author='Jeff Revesz',
     author_email='jeff.revesz@buzzfeed.com',
     packages=find_packages(),
