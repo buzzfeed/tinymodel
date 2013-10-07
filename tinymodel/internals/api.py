@@ -82,13 +82,16 @@ def __get_resp_with_alien_params(response):
 
 
 def __call_api_method(cls, service, method_name, endpoint_name=None,
-                      set_model_defaults=False, **kwargs):
+                      set_model_defaults=False, return_fields=[], **kwargs):
     """
     Calls a generic method from the given class using the given params.
 
     :param tinymodel.TinyModel cls: The class needed to perform class-level operations.
     :param tinymodel.service.Service: An initialized Service containing the service-specific methods meant to use.
     :param str method_name: The exact name of the method to call.
+    :param str endpoint_name: The name of endpoint to communicate with storage.
+    :param boolean set_model_defaults: True and kwargs can contain calculated values.
+    :params list(str) return_fields: List of fields used in aggregation
     :param dict kwargs: The params to validate and send to the service-specific method.
 
     :rtype [tinymodel.TinyModel|list(tinymodel.TinyModel)]: The translated response.
@@ -119,8 +122,8 @@ def __call_api_method(cls, service, method_name, endpoint_name=None,
     if endpoint_name is None:
         endpoint_name = inflection.underscore(cls.__name__)
     kwargs.update(extra_params)
-    if method_name == 'find':
-        response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
+    if method_name == 'sum':
+        response = getattr(service, method_name)(endpoint_name=endpoint_name, return_fields=return_fields, **kwargs)
     else:
         response = getattr(service, method_name)(endpoint_name=endpoint_name, **kwargs)
     response, alien_params = __get_resp_with_alien_params(response)
@@ -187,3 +190,17 @@ def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):
         kwargs_update.append(('id', found_objects[0].id))
         return update(cls, service, endpoint_name, **dict(kwargs_update)), False
     return create(cls, service, endpoint_name, **kwargs), True
+
+
+def sum(cls, service, endpoint_name=None, return_fields=[], **kwargs):
+    """
+    Performs a sum aggregation over return_fields matching the given arguments.
+    """
+    if not return_fields:
+        raise ValueError("Missing values for 'return_fields' parameter.")
+
+    kwargs = remove_has_many_values(cls, **kwargs)
+    kwargs = remove_datetime_values(cls, **kwargs)
+    kwargs = remove_float_values(cls, **kwargs)
+    return __call_api_method(cls, service, 'sum', endpoint_name,
+                             return_fields=return_fields, **kwargs)[0]

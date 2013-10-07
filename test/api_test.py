@@ -283,3 +283,30 @@ class APiTest(TestCase):
                     ok_(u2.called)
                     u2.assert_called_with(MyTinyModel, service, None, **params)
                     ok_(not c2.called)
+
+    def test_sum(self):
+        service = Service(sum=MagicMock())
+        valid_params = self.VALID_PARAMS.copy()
+        valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
+                             'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
+                             'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
+                             'my_m2m_ids': [u'1', u'2']})
+        invalid_params = self.INVALID_PARAMS.copy()
+        invalid_params.pop('foo', None)
+        invalid_names = ['my_other', 'foo', 'bar']
+
+        with patch('tinymodel.internals.api.render_to_response'):
+            with patch('tinymodel.internals.api.match_field_values') as match_values1:
+                for key in valid_params.keys():
+                    MyTinyModel.sum(service, return_fields=['my_int'], **{key: 'foo'})
+                    ok_(match_values1.called)
+            with patch('tinymodel.internals.api.match_field_values') as match_values2:
+                for key in invalid_names:
+                    assert_raises(ModelException, MyTinyModel.sum, service, return_fields=['my_int'], **{key: 'foo'})
+                    ok_(not match_values2.called)
+
+            # missing return_fields param
+            with patch('tinymodel.internals.api.match_field_values') as match_values3:
+                for k, v in valid_params.iteritems():
+                    assert_raises(ValueError, MyTinyModel.sum, service, **{k: v})
+                    ok_(not match_values3.called)
