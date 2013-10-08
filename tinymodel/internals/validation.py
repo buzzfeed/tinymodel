@@ -1,6 +1,7 @@
 import datetime
 from dateutil import parser as date_parser
 import inflection
+import inspect
 import warnings
 from tinymodel.internals.field_def_validation import __substitute_class_refs
 from tinymodel.utils import ValidationError, get_field_def_names
@@ -128,17 +129,18 @@ def __match_field_value(cls, name, value):
                 for v in value:
                     valid = False
                     for allowed_type in field_def.allowed_types:
-                        if allowed_type in (list, tuple, set) or type(allowed_type) in (list, tuple, set):
+                        if allowed_type in (list, tuple, set):
+                            if type(v) == allowed_type:
+                                valid = True
+                        elif type(allowed_type) in (list, tuple, set):
                             if type(v) in allowed_type:
                                 valid = True
-                                continue
-                            else:
-                                if type(v) == allowed_type:
-                                    valid = True
-                                    continue
-                        elif issubclass(allowed_type, TinyModel) and type(v) in (long, int, unicode, str):
+                        elif inspect.isclass(allowed_type) and \
+                            issubclass(allowed_type, TinyModel):
+                            if type(v) in (long, int, unicode, str):
+                                valid = True
+                        elif isinstance(v, allowed_type):
                             valid = True
-                            continue
                     if not valid:
                         raise new_validation_error(value, name, field_def.allowed_types)
     else:
