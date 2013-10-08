@@ -49,10 +49,15 @@ class ValidationTest(TestCase):
 
     def test_match_field_values(self):
         VALID_PARAMS = [
-            {'my_int': 1, 'my_str': 'foo', 'my_bool': False, 'my_fk': MyOtherModel(id=1)},
+            {'my_int': 1, 'my_str': 'foo', 'my_bool': False, 'my_list': [], 'my_fk': MyOtherModel(id=1)},
             {'my_int': 1, 'my_str': 'foo',  'my_m2m': [MyOtherModel(id=1)]},
+            {'my_str': ['foo', 'bar', 'baz']},
+            {'my_bool': [True, False, False]},
+            {'my_float': [0.5, 1.9, 2.3]},
+            {'my_int': [1, 2, 3]},
+            {'my_list': [[], []]},
             {'my_fk_id': 1},
-            {'my_fk_id': [1, 2, 3, 4]}
+            {'my_fk_id': [1, 2, 3, 4]},
         ]
         INVALID_PARAMS = [
             {'my_int': 'asd', 'my_str': 'asd'},

@@ -18,6 +18,7 @@ class MyTinyModel(TinyModel):
         FieldDef('my_int', allowed_types=[int]),
         FieldDef('my_str', allowed_types=[str]),
         FieldDef('my_bool', allowed_types=[bool]),
+        FieldDef('my_list', allowed_types=[list]),
         FieldDef('my_fk', allowed_types=["test.api_test.MyOtherModel"], relationship='has_one'),
         FieldDef('my_m2m', allowed_types=[["test.api_test.MyOtherModel"]], relationship='has_many'),
         FieldDef('my_calculated_value', allowed_types=[bool], calculated=__default),
