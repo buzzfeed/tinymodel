@@ -2,7 +2,7 @@ import collections
 import inflection
 import json as j
 from tinymodel.utils import ModelException
-from datetime import datetime
+
 
 def __field_from_json(tinymodel, allowed_types, json_value, this_field_def=None):
     """
@@ -104,6 +104,8 @@ def __field_to_json(tinymodel, this_value, raw=False, custom_translators={}):
                     return values
                 elif isinstance(this_value, dict) and 'id' in this_value:
                     return this_value['id']
+                else:
+                    return this_value
             return tinymodel.SUPPORTED_BUILTINS[type_of_value]['to_json'](tinymodel, this_value)
         else:
             if custom_translators:

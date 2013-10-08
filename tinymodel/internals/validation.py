@@ -1,4 +1,5 @@
-from datetime import datetime
+import datetime
+from dateutil import parser as date_parser
 import inflection
 import warnings
 from tinymodel.internals.field_def_validation import __substitute_class_refs
@@ -88,9 +89,10 @@ def __extend_foreign_fields(field_defs_list):
 
 
 def __match_field_value(cls, name, value):
+    from tinymodel import TinyModel
     def new_validation_error(value, field_name, allowed_types):
-        error = '<{} "{}"> is not a valid value for "{}". Allowed types are: {}'
-        return ValidationError(error.format(type(value).__name__, value, field_name, allowed_types))
+        error = '<%s %r> is not a valid value for "%s". Allowed types are: %r'
+        return ValidationError(error % (type(value).__name__, value, field_name, allowed_types))
 
     value_type = type(value)
     if value_type in cls.COLLECTION_TYPES:
@@ -113,28 +115,32 @@ def __match_field_value(cls, name, value):
 
             for index, allowed_type in enumerate(field_def.allowed_types):
                 field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
-            valid_allowed_types = [x for x in field_def.allowed_types if isinstance(x, value_type)]
 
-            if valid_allowed_types:
-                if value and isinstance(value, dict):
-                    key_valid = __match_field_value(cls, map(lambda x: x.keys()[0], valid_allowed_types), value.keys()[0])
-                    value_valid = __match_field_value(cls, map(lambda x: x.values()[0], valid_allowed_types), value.values()[0])
+            if value and isinstance(value, dict):
+                if is_lookup_dict(value):
+                    validate_range_lookup(value, field_def.allowed_types)
+                else:
+                    key_valid = __match_field_value(cls, map(lambda x: x.keys()[0], field_def.allowed_types), value.keys()[0])
+                    value_valid = __match_field_value(cls, map(lambda x: x.values()[0], field_def.allowed_types), value.values()[0])
                     if not (key_valid and value_valid):
                         raise new_validation_error(value, name, field_def.allowed_types)
-                elif value:
-                    for v in value:
-                        valid = False
-                        for allowed_type in valid_allowed_types:
-                            if isinstance(allowed_type, (list, tuple, set)):
-                                if type(v) in allowed_type:
+            elif value:
+                for v in value:
+                    valid = False
+                    for allowed_type in field_def.allowed_types:
+                        if allowed_type in (list, tuple, set) or type(allowed_type) in (list, tuple, set):
+                            if type(v) in allowed_type:
+                                valid = True
+                                continue
+                            else:
+                                if type(v) == allowed_type:
                                     valid = True
                                     continue
-                                else:
-                                    if type(v) == allowed_type:
-                                        valid = True
-                                        continue
-                        if not valid:
-                            raise new_validation_error(value, name, field_def.allowed_types)
+                        elif issubclass(allowed_type, TinyModel) and type(v) in (long, int, unicode, str):
+                            valid = True
+                            continue
+                    if not valid:
+                        raise new_validation_error(value, name, field_def.allowed_types)
     else:
         try:
             field_def = filter(lambda f: f.title == name, cls.FIELD_DEFS)[0]
@@ -192,7 +198,54 @@ def validate_fuzzy_fields(cls, fields=[]):
             raise ValidationError('%r is not a text field. Field not compatible with fuzzy search!' % field_def.title)
 
 
+def validate_range_lookup(lookup_dict, allowed_types):
+    """
+    Validates the contents of a dictionary meant for looking up objects by a range of values.
+
+    :param dict lookup_dict: The dictionary containing the ranges to look up by.
+    :param list allowed_types: The list of types that are allowed for the field being validated.
+
+    """
+    lt_lookups = set(['lt', 'lte'])
+    gt_lookups = set(['gt', 'gte'])
+    lookup_keys = lt_lookups | gt_lookups
+
+    if set(lookup_dict.keys()) - lookup_keys:
+        raise ValidationError('Invalid lookup keys: %s' % (set(lookup_dict.keys()) - lookup_keys))
+    if (set(lookup_dict.keys()) & lt_lookups) == lt_lookups:
+        raise ValidationError('"lt" and "lte" cannot be used together:\n%s' % lookup_dict)
+    if (set(lookup_dict.keys()) & gt_lookups) == gt_lookups:
+        raise ValidationError('"gt" and "gte" cannot be used together:\n%s' % lookup_dict)
+
+    for key in lookup_dict.keys():
+        if type(lookup_dict[key]) == datetime.date:
+            lookup_dict[key] = datetime.datetime.combine(lookup_dict[key], datetime.time())
+        elif isinstance(lookup_dict[key], str):
+            try:
+                lookup_dict[key] = date_parser.parse(lookup_dict[key])
+            except:
+                pass
+        if type(lookup_dict[key]) not in allowed_types:
+            raise ValidationError('%r is not a valid value for this field. '
+                'Valid types are: %r\n%s' % (lookup_dict[key], allowed_types, lookup_dict))
+        if isinstance(lookup_dict[key], datetime.datetime) and lookup_dict[key].tzinfo:
+            raise ValidationError('Timezone-aware datetimes are not supported yet. '
+                'Please use a timezone-naive datetime instead.')
+
+    gt_key = next(iter(set(lookup_dict.keys()) & gt_lookups), None)
+    lt_key = next(iter(set(lookup_dict.keys()) & lt_lookups), None)
+
+    if lt_key and gt_key:
+        if lookup_dict[gt_key] > lookup_dict[lt_key]:
+            raise ValidationError(
+                '"%s" value (%s) must be less than "%s" value (%s).' % (
+                    lt_key, lookup_dict[lt_key], gt_key, lookup_dict[gt_key]
+                )
+            )
+
+
 remove_calculated_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.calculated, **kwargs)
 remove_has_many_values = lambda cls, **kwargs: __remove_values(cls, lambda f: f.relationship == 'has_many', **kwargs)
-remove_datetime_values = lambda cls, **kwargs: __remove_values(cls, lambda f: datetime in f.allowed_types, **kwargs)
+remove_datetime_values = lambda cls, **kwargs: __remove_values(cls, lambda f: datetime.datetime in f.allowed_types, **kwargs)
 remove_float_values = lambda cls, **kwargs: __remove_values(cls, lambda f: float in f.allowed_types, **kwargs)
+is_lookup_dict = lambda dict_obj: set(['lt', 'gt', 'lte', 'gte']) & set(dict_obj.keys())
