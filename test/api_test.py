@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from dateutil.tz import tzoffset, tzutc
 import json
 import random
 from unittest import TestCase
@@ -6,7 +7,7 @@ from mock import patch, MagicMock
 from nose.tools import assert_raises, ok_, eq_
 from tinymodel import TinyModel, FieldDef, api, defaults
 from tinymodel.service import Service
-from tinymodel.utils import ModelException
+from tinymodel.utils import ModelException, ValidationError
 
 
 class MyTinyModel(TinyModel):
@@ -119,10 +120,40 @@ class APiTest(TestCase):
                 ok_(renderer1.called)
 
         # test limit and offset
-        with patch('tinymodel.internals.api.render_to_response') as renderer1:
+        with patch('tinymodel.internals.api.render_to_response') as renderer2:
             for k, v in valid_params.iteritems():
                 MyTinyModel.find(service, limit=10, offset=1, **{k: v})
-                ok_(renderer1.called)
+                ok_(renderer2.called)
+
+        today = datetime.now()
+        with patch('tinymodel.internals.api.render_to_response') as renderer3:
+            other_day = today - timedelta(days=random.randint(1, 7))
+            valid_ranges = {
+                'my_int': [{'lt': 100}, {'gt': 20}, {'lte': 100}, {'gte': 10},
+                           {'gt': 10, 'lt': 100}, {'gte': 20, 'lte': 200}],
+                'my_datetime': [{'lt': today}, {'gt': other_day}, {'lte': other_day}, {'gte': today},
+                           {'gt': other_day, 'lt': today}, {'gte': other_day, 'lte': today},
+                           {'lt': today.date()}, {'gt': today.isoformat()}],
+            }
+            for key, ranges in valid_ranges.iteritems():
+                for r in ranges:
+                    MyTinyModel.find(service, **{key: r})
+                    ok_(renderer3.called)
+
+            invalid_ranges = {
+                'my_datetime': [
+                    {'lt': today.replace(tzinfo=tzutc())},
+                    {'gt': today.replace(tzinfo=tzutc()).isoformat()},
+                    {'lte': today.replace(tzinfo=tzoffset(None, -5*3600))},
+                    {'gte': today.replace(tzinfo=tzoffset(None, -6*3600)).isoformat()},
+                ]
+            }
+
+        with patch('tinymodel.internals.api.render_to_response') as renderer4:
+            for key, ranges in invalid_ranges.iteritems():
+                for range_ in ranges:
+                    assert_raises(ValidationError, MyTinyModel.find, service, **{key: range_})
+                    ok_(not renderer4.called)
 
     def test_create(self):
         service = Service(create=MagicMock())
