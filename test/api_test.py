@@ -141,20 +141,6 @@ class APiTest(TestCase):
                     MyTinyModel.find(service, **{key: r})
                     ok_(renderer3.called)
 
-            invalid_ranges = {
-                'my_datetime': [
-                    {'lt': today.replace(tzinfo=tzutc())},
-                    {'gt': today.replace(tzinfo=tzutc()).isoformat()},
-                    {'lte': today.replace(tzinfo=tzoffset(None, -5*3600))},
-                    {'gte': today.replace(tzinfo=tzoffset(None, -6*3600)).isoformat()},
-                ]
-            }
-
-        with patch('tinymodel.internals.api.render_to_response') as renderer4:
-            for key, ranges in invalid_ranges.iteritems():
-                for range_ in ranges:
-                    assert_raises(ValidationError, MyTinyModel.find, service, **{key: range_})
-                    ok_(not renderer4.called)
 
     def test_create(self):
         service = Service(create=MagicMock())

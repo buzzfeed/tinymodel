@@ -230,9 +230,6 @@ def validate_range_lookup(lookup_dict, allowed_types):
         if type(lookup_dict[key]) not in allowed_types:
             raise ValidationError('%r is not a valid value for this field. '
                 'Valid types are: %r\n%s' % (lookup_dict[key], allowed_types, lookup_dict))
-        if isinstance(lookup_dict[key], datetime.datetime) and lookup_dict[key].tzinfo:
-            raise ValidationError('Timezone-aware datetimes are not supported yet. '
-                'Please use a timezone-naive datetime instead.')
 
     gt_key = next(iter(set(lookup_dict.keys()) & gt_lookups), None)
     lt_key = next(iter(set(lookup_dict.keys()) & lt_lookups), None)
