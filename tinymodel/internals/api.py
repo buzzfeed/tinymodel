@@ -103,6 +103,7 @@ def __call_api_method(cls, service, method_name, endpoint_name=None,
         extra_params['limit'] = kwargs.pop('limit')
         extra_params['offset'] = kwargs.pop('offset')
         extra_params['order_by'] = kwargs.pop('order_by')
+        extra_params['expand_related'] = kwargs.pop('expand_related')
 
     if method_name in ('find', 'get_or_create'):
         if kwargs.get('fuzzy'):
@@ -131,7 +132,7 @@ def __call_api_method(cls, service, method_name, endpoint_name=None,
 
 
 def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
-         fuzzy=[], fuzzy_match_exclude=[], **kwargs):
+         fuzzy=[], fuzzy_match_exclude=[], expand_related=False, **kwargs):
     """ Performs a search operation given the passed arguments. """
     kwargs = remove_has_many_values(cls, **kwargs)
     kwargs = remove_float_values(cls, **kwargs)
@@ -142,6 +143,7 @@ def find(cls, service, endpoint_name=None, limit=None, offset=None, order_by={},
         'order_by': order_by,
         'fuzzy': fuzzy,
         'fuzzy_match_exclude': fuzzy_match_exclude,
+        'expand_related': expand_related,
     })
     return __call_api_method(cls, service, 'find', endpoint_name, False, **kwargs)[0]
 
