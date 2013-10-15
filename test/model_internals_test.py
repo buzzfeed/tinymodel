@@ -1,11 +1,12 @@
-import random as r
-import warnings
-import pytz
-
 from datetime import datetime, timedelta
+from dateutil import parser as date_parser
 from decimal import Decimal
-from unittest import TestCase
+import json
 from nose.tools import eq_, ok_, assert_raises
+import random as r
+import pytz
+from unittest import TestCase
+import warnings
 
 from tinymodel import(
     TinyModel,
@@ -94,8 +95,8 @@ class MyValidTestModel(TinyModel):
     def __calc_my_default(self):
         return self.my_int + int(self.my_float)
 
-    DATETIME_TRANSLATORS = {'to_json': lambda(obj): 'my_custom_datetime_json',
-                            'from_json': lambda(json_value): datetime.today(),
+    DATETIME_TRANSLATORS = {'to_json': lambda obj: 'my_custom_datetime_json',
+                            'from_json': lambda json_value: datetime.today(),
                             'random': lambda: datetime.today(),
                            }
 
@@ -312,6 +313,16 @@ class MyOptionalNonExistentClassTypeModel(TinyModel):
     FIELD_DEFS = [FieldDef(title='my_int', required=True, validate=True, allowed_types=[int]),
                   FieldDef(title='my_str', required=True, validate=True, allowed_types=[str]),
                   FieldDef(title='my_custom_type', required=False, validate=True, allowed_types=['test.model_internals_test.Foo'])]
+
+
+class MyJSONTranslatableModel(TinyModel):
+    FIELD_DEFS = [
+        FieldDef(title='my_str', allowed_types=[str]),
+        FieldDef(title='my_bool', allowed_types=[bool]),
+        FieldDef(title='my_datetime', allowed_types=[datetime]),
+        FieldDef(title='my_fk', allowed_types=[MyValidTypeClass]),
+        FieldDef(title='my_m2m', allowed_types=[[MyValidTypeClass]]),
+    ]
 
 
 class TinyModelTest(TestCase):
@@ -616,3 +627,37 @@ class TinyModelTest(TestCase):
                    }
 
         assert_raises(Exception, MyNonExistentClassTypeModel, **initial)
+
+    def test_json_translation_options(self):
+      obj = MyJSONTranslatableModel(random=True)
+
+      json_obj = obj.to_json()
+      ok_(isinstance(json_obj, basestring))
+      j = json.loads(json_obj)
+      ok_(isinstance(j['my_datetime'], basestring))
+      ok_(date_parser.parse(j['my_datetime']).tzinfo)
+      # test "return_dict" option
+      dict_obj = obj.to_json(return_dict=True)
+      ok_(isinstance(dict_obj, dict))
+      ok_(isinstance(dict_obj['my_datetime'], basestring))
+      ok_(date_parser.parse(dict_obj['my_datetime']).tzinfo)
+      # test "return_raw" option
+      raw_obj = obj.to_json(return_raw=True)
+      ok_(isinstance(raw_obj, dict))
+      ok_(raw_obj['my_datetime'].tzinfo)
+      for k, v in raw_obj.items():
+          f = filter(lambda f: k in (f.title, f.title[:-3], f.title[:-4]), obj.FIELD_DEFS)[0]
+          t = f.allowed_types[0]
+          if t in obj.SUPPORTED_BUILTINS.keys():
+              ok_(isinstance(v, t))
+          elif t in obj.COLLECTION_TYPES:
+              ok_(isinstance(v, type(t)))
+          else:
+              eq_(v, raw_obj[k])
+      # test "naive_datetimes" option
+      dt = date_parser.parse(json.loads(obj.to_json(naive_datetimes=True))['my_datetime'])
+      ok_(not dt.tzinfo and not dt.microsecond)
+      dt = date_parser.parse(obj.to_json(return_dict=True, naive_datetimes=True)['my_datetime'])
+      ok_(not dt.tzinfo and not dt.microsecond)
+      dt = obj.to_json(return_raw=True, naive_datetimes=True)['my_datetime']
+      ok_(not dt.tzinfo and not dt.microsecond)
