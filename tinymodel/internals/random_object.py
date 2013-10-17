@@ -41,7 +41,7 @@ def __random_field(tinymodel, this_type, model_recursion_depth=1, this_field_def
             raise RecursionDepthError
 
 
-def random(tinymodel, model_recursion_depth=1):
+def random(tinymodel, model_recursion_depth=1, attribs_only=False):
     """
     Assigns random values to the FIELD_DEFS of the TinyModel.
     Iterates over the FIELD_DEFS attribute to generate a random instance of each FIELD_DEFS type.
@@ -54,13 +54,16 @@ def random(tinymodel, model_recursion_depth=1):
     attrs_to_set = {}
 
     for field_def in tinymodel.FIELD_DEFS:
-        if field_def.title not in ['id', 'created_at', 'updated_at']:
-            try:
-                random_field_value =  __random_field(tinymodel,
-                                                     this_type=next(iter(field_def.allowed_types)),
-                                                     model_recursion_depth=model_recursion_depth,
-                                                     this_field_def=field_def)
-                attrs_to_set[field_def.title] = random_field_value
-            except RecursionDepthError:
-                pass
+        if attribs_only and field_def.relationship != 'attribute':
+            pass
+        else:
+            if field_def.title not in ['id', 'created_at', 'updated_at']:
+                try:
+                    random_field_value =  __random_field(tinymodel,
+                                                         this_type=next(iter(field_def.allowed_types)),
+                                                         model_recursion_depth=model_recursion_depth,
+                                                         this_field_def=field_def)
+                    attrs_to_set[field_def.title] = random_field_value
+                except RecursionDepthError:
+                    pass
     return attrs_to_set

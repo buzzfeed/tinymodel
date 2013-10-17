@@ -231,7 +231,7 @@ class TinyModel(object):
             raise AttributeError(str(type(self)) + " has no field " + name)
 
     def __init__(self, from_json=False, from_foreign_model=False, random=False,
-                 model_recursion_depth=1, preprocessed=False, set_defaults=True, **kwargs):
+                 model_recursion_depth=1, attribs_only=False, preprocessed=False, set_defaults=True, **kwargs):
         """
         Checks validity of type definitions and initializes the Model
 
@@ -267,7 +267,7 @@ class TinyModel(object):
         elif from_foreign_model:
             initial_attributes = self.__from_foreign_model(from_foreign_model)
         elif random:
-            initial_attributes = self.__from_random(model_recursion_depth=model_recursion_depth)
+            initial_attributes = self.__from_random(model_recursion_depth=model_recursion_depth, attribs_only=attribs_only)
         else:
             initial_attributes = kwargs
 
@@ -289,8 +289,8 @@ class TinyModel(object):
     def from_json(self, model_as_json, preprocessed=False):
         return self.__from_json(self, model_as_json, preprocessed)
 
-    def random(self, model_recursion_depth=1):
-        return self.__from_random(self, model_recursion_depth)
+    def random(self, model_recursion_depth=1, attribs_only=False):
+        return self.__from_random(self, model_recursion_depth, attribs_only)
 
     def replace_refs_with_ids(self, return_copy=True):
         """
