@@ -2,7 +2,6 @@ import copy
 import inflection
 from datetime import datetime
 from dateutil import parser as date_parser
-from pprint import pformat
 from collections import Iterable
 
 from tinymodel.internals import(
@@ -69,9 +68,23 @@ class FieldDef(object):
             raise AttributeError("Bad value for field relationship: " + str(relationship) +
                                  "\nMust be one of the following: 'has_one', 'has_many', 'attribute'")
         self.title = title
+
+        if relationship == 'has_one':
+            self.alias = title + '_id'
+        elif relationship == 'has_many':
+            self.alias = inflection.singularize(title) + '_ids'
+        else:
+            self.alias = title
+
         self.required = required
         self.validate = validate
         self.allowed_types = allowed_types
+
+        if relationship == 'has_one':
+            self.allowed_types += [int, long, str, unicode]
+        elif relationship == 'has_many':
+            self.allowed_types += [[int], [long], [str], [unicode]]
+
         self.relationship = relationship
         self.calculated = calculated
         self.default_value = default_value
@@ -93,7 +106,7 @@ class Field(object):
 
     """
 
-    def __init__(self, field_def, value, is_id_field=False):
+    def __init__(self, field_def, value):
         """
         Creates an instance of a Field object
 
@@ -102,7 +115,6 @@ class Field(object):
         """
         self.field_def = field_def
         self.value = value
-        self.is_id_field = is_id_field
         self.was_validated = False
         self.last_validated_value = None
 
@@ -147,10 +159,11 @@ class TinyModel(object):
 
     def __repr__(self):
         """
-        Override print method for model
+        Override repr method for model
 
         """
-        return str(self.__class__) + "\nFIELDS:\n" + pformat(dict([(f.field_def.title, f.value) for f in self.FIELDS])) + "\n"
+        fields_repr = '\n'.join(f.title + ": " + str(getattr(self, f.title)) for f in self.FIELD_DEFS if hasattr(self, f.title))
+        return str(self.__class__) + "\nFIELDS:\n" + fields_repr + "\n"
 
     def __setattr__(self, key, value):
         """
@@ -162,61 +175,38 @@ class TinyModel(object):
         If the key does not exist in FIELD_DEFS then an error is raised.
 
         """
-        valid_field_titles = set([key, key.rsplit("_id")[0], inflection.pluralize(key.rsplit("_ids")[0])])
-        this_field_def = next((f for f in self.FIELD_DEFS if f.title in valid_field_titles), False)
+        this_field_def = next((f for f in self.FIELD_DEFS if f.title == key or f.alias == key), False)
         if this_field_def:
-            if key == this_field_def.title:
-                if type(value) in [str, unicode] and datetime in this_field_def.allowed_types:
-                    try:
-                        value = date_parser.parse(value)
-                    except ValueError:
-                        pass
-                this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title), None)
-                if not this_field:
-                    self.FIELDS.append(Field(field_def=this_field_def, value=value))
-                else:
-                    this_field.value = value
+            if type(value) in [str, unicode] and datetime in this_field_def.allowed_types:
+                try:
+                    value = date_parser.parse(value)
+                except ValueError:
+                    pass
+            this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title), None)
+            if not this_field:
+                self.FIELDS.append(Field(field_def=this_field_def, value=value))
             else:
-                this_field = next((f for f in self.FIELDS if f.field_def.title == this_field_def.title and f.is_id_field), None)
-                if not this_field:
-                    self.FIELDS.append(Field(field_def=this_field_def, value=value, is_id_field=True))
-                else:
-                    this_field.value = value
+                this_field.value = value
         else:
             raise ModelException('Tried to set undefined field "' + str(key) + '" on model ' + str(type(self)) + "\n" +
                                  "Available fields are: " + str([f.field_def.title for f in self.FIELDS]))
-
-        # recalculate "calculated" fields
-        for field_def in filter(lambda f: f.calculated, self.FIELD_DEFS):
-            try:
-                value = field_def.calculated(self)
-                default_field = next((f for f in self.FIELDS if f.field_def == field_def), None)
-                if not default_field:
-                    self.FIELDS.append(Field(field_def=field_def, value=value))
-                else:
-                    default_field.value = value
-            except AttributeError:
-                pass
 
     def __getattr__(self, name):
         """
         Overrides __getattr__ to get the field value
 
         """
-        self_fields = super(TinyModel, self).__getattribute__('FIELDS')
-        valid_field_titles = set([name, name.rsplit("_id")[0], inflection.pluralize(name.rsplit("_ids")[0])])
-        this_field = next((f for f in self_fields if f.field_def.title in valid_field_titles), None)
+        my_field_defs = object.__getattribute__(self, 'FIELD_DEFS')
+        this_field_def = next((f for f in my_field_defs if f.title == name or f.alias == name), None)
+        if this_field_def and this_field_def.calculated:
+            return this_field_def.calculated(self)
+
+        self_fields = object.__getattribute__(self, 'FIELDS')
+        this_field = next((f for f in self_fields if f.field_def == this_field_def), None)
         if this_field:
-            if this_field.field_def.title == name or this_field.is_id_field:
-                return this_field.value
-            elif "_id" in name and this_field.field_def.relationship == 'has_one' and hasattr(this_field.value, 'id'):
-                return this_field.value.id
-            elif "_ids" in name and this_field.field_def.relationship == 'has_many' and isinstance(this_field.value, Iterable) and all(hasattr(v, 'id') for v in this_field.value):
-                return [v.id for v in this_field.value]
-            else:
-                raise AttributeError(str(self) + "is missing id attribute on field " + this_field.field_def.title)
+            return this_field.value
         else:
-            raise AttributeError(str(self) + " has no field " + name)
+            raise AttributeError(str(self.__class__) + " has no field " + name)
 
     def __delattr__(self, name):
         """
@@ -244,15 +234,15 @@ class TinyModel(object):
                                Values are not validated until you call Model.validate()
 
         """
-        super(TinyModel, self).__setattr__('FIELDS', [])
-        super(TinyModel, self).__setattr__('VALIDATION_FAILURES', [])
-        super(TinyModel, self).__setattr__('JSON_FAILURES', [])
-        super(TinyModel, self).__setattr__('REMOVED_FIELDS', [])
+        object.__setattr__(self, 'FIELDS', [])
+        object.__setattr__(self, 'VALIDATION_FAILURES', [])
+        object.__setattr__(self, 'JSON_FAILURES', [])
+        object.__setattr__(self, 'REMOVED_FIELDS', [])
 
         # set supported methods and builtins
-        if not getattr(self, 'SUPPORTED_METHODS', False):
+        if not self.__dict__.get('SUPPORTED_METHODS'):
             super(TinyModel, self).__setattr__('SUPPORTED_METHODS', defaults.SUPPORTED_METHODS)
-        if not getattr(self, 'SUPPORTED_BUILTINS', False):
+        if not self.__dict__.get('SUPPORTED_BUILTINS'):
             super(TinyModel, self).__setattr__('SUPPORTED_BUILTINS', defaults.SUPPORTED_BUILTINS)
 
         # validate model definition if it hasn't been already
@@ -302,24 +292,16 @@ class TinyModel(object):
 
         """
         if return_copy:
-            copy_of_self = copy.deepcopy(self)
+            copy_of_self = self.__class__(**self.to_json(return_dict=True))
         else:
             copy_of_self = self
-        fields_to_remove = []
-        for field in copy_of_self.FIELDS:
-            try:
-                if field.field_def.relationship == 'has_one' and not field.is_id_field:
-                    setattr(copy_of_self, field.field_def.title + "_id", field.value.id)
-                    fields_to_remove.append(field.field_def.title)
-                if field.field_def.relationship == 'has_many' and not field.is_id_field:
-                    setattr(copy_of_self, inflection.singularize(field.field_def.title) + "_ids", [o.id for o in field.value])
-                    fields_to_remove.append(field.field_def.title)
-            except AttributeError:
-                if field.field_def.relationship == 'has_one' and not field.is_id_field and field.value:
-                    setattr(copy_of_self, field.field_def.title + "_id", field.value)
-                    fields_to_remove.append(field.field_def.title)
 
-        for field in fields_to_remove:
-            delattr(copy_of_self, field)
+        for field in copy_of_self.FIELDS:
+            if field.field_def.relationship == 'has_one':
+                if hasattr(field.value, 'id'):
+                    setattr(copy_of_self, field.field_def.title, field.value.id)
+            if field.field_def.relationship == 'has_many':
+                if all(hasattr(o, 'id') for o in field.value):
+                    setattr(copy_of_self, field.field_def.title, [o.id for o in field.value])
 
         return copy_of_self

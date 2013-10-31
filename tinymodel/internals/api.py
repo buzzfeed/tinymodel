@@ -183,12 +183,12 @@ def update(cls, service, endpoint_name=None, **kwargs):
 
 
 def create_or_update_by(cls, service, by=[], endpoint_name=None, **kwargs):
-    kwargs_find = filter(lambda (k, v): k in by, kwargs.iteritems())
+    kwargs_find = filter(lambda (k, v): k in by, kwargs.items())
     if not kwargs_find:
         raise ValueError("Missing values for 'by' parameter.")
     found_objects = find(cls=cls, service=service, endpoint_name=endpoint_name, **dict(kwargs_find))
     if found_objects:
-        kwargs_update = list(set(kwargs.items()) - set(kwargs_find))
+        kwargs_update = filter(lambda (k, v): k not in by, kwargs.items())
         kwargs_update.append(('id', found_objects[0].id))
         return update(cls, service, endpoint_name, **dict(kwargs_update)), False
     return create(cls, service, endpoint_name, **kwargs), True
