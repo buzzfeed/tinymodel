@@ -1,6 +1,5 @@
 import collections
 from datetime import datetime
-import inflection
 import json as j
 from tinymodel.utils import ModelException
 
@@ -154,7 +153,7 @@ def from_json(tinymodel, model_as_json, preprocessed=False):
         json_fields = model_as_json
 
     for (json_field_name, json_field_value) in json_fields.items():
-        this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.title + "_id", inflection.singularize(f.title) + "_ids"]), None)
+        this_field_def = next((f for f in tinymodel.FIELD_DEFS if json_field_name in [f.title, f.alias]), None)
         if this_field_def:
             fields_to_set[json_field_name] = __field_from_json(tinymodel,
                                                                allowed_types=this_field_def.allowed_types,
@@ -177,25 +176,13 @@ def to_json(tinymodel, return_dict=False, return_raw=False, naive_datetimes=Fals
     json_fields = {}
     object_as_json = ''
 
-    for field in tinymodel.FIELDS:
-        if field.is_id_field:
-            if isinstance(field.value, collections.Iterable) and not isinstance(field.value, basestring):
-                json_field_title = inflection.singularize(field.field_def.title) + "_ids"
-            else:
-                json_field_title = field.field_def.title + "_id"
-        else:
-            if return_raw and field.field_def.relationship == 'has_many':
-                json_field_title = inflection.singularize(field.field_def.title) + "_ids"
-            elif return_raw and field.field_def.relationship == 'has_one':
-                json_field_title = field.field_def.title + "_id"
-            else:
-                json_field_title = field.field_def.title
-        json_fields.update({json_field_title: __field_to_json(
+    for field_def in filter(lambda f: hasattr(tinymodel, f.title), tinymodel.FIELD_DEFS):
+        json_fields.update({field_def.title: __field_to_json(
             tinymodel,
-            this_value=field.value,
+            this_value=getattr(tinymodel, field_def.title),
             raw=return_raw,
             naive_datetimes=naive_datetimes,
-            custom_translators=field.field_def.custom_translators
+            custom_translators=field_def.custom_translators
         )})
 
     if return_raw:

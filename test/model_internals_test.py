@@ -363,7 +363,7 @@ class TinyModelTest(TestCase):
                    'my_nested_list_custom_type': [[MyValidTypeClass()]],
                    'my_nested_dict_custom_type': {'dict_one': {'one': MyValidTypeClass()}},
                    'my_multiple_custom_types': MyOtherValidTypeClass(),
-                   'my_alt_custom_type_id': MyValidTypeClass().id, #test is_id_field
+                   'my_alt_custom_type_id': MyValidTypeClass().id, #test alias
                    'my_decimal_type': Decimal(1.2),
                    }
 

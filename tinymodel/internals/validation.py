@@ -1,10 +1,9 @@
 import datetime
 from dateutil import parser as date_parser
-import inflection
 import inspect
 import warnings
 from tinymodel.internals.field_def_validation import __substitute_class_refs
-from tinymodel.utils import ValidationError, get_field_def_names
+from tinymodel.utils import ValidationError
 
 
 def __validate_field_value(tinymodel, this_field, original_value, allowed_types, value):
@@ -36,8 +35,6 @@ def __validate_field_value(tinymodel, this_field, original_value, allowed_types,
     else:
         if type(value) in allowed_types:
             valid = True
-        elif this_field.is_id_field and type(value) in [int, long, unicode, str]:
-            valid = True
     if valid:
         this_field.last_validated_value = original_value
 
@@ -62,7 +59,7 @@ def validate(tinymodel, prior_errors=[], warning_only=False):
 
     # Test missing required fields
     for field_def in tinymodel.FIELD_DEFS:
-        if field_def.required and not [f for f in tinymodel.FIELDS if f.field_def == field_def]:
+        if field_def.required and not hasattr(tinymodel, field_def.title):
             data_validation_errors.append("Missing required field: " + field_def.title)
 
     # Test invalid field values
@@ -77,16 +74,6 @@ def validate(tinymodel, prior_errors=[], warning_only=False):
             warnings.warn("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
         else:
             raise ValidationError("Validation Errors on " + str(tinymodel) + ":\n" + "\n".join(errors))
-
-
-def __extend_foreign_fields(field_defs_list):
-    extended_model_names = []
-    for field_def in field_defs_list:
-        if field_def.relationship == 'has_one':
-            extended_model_names.append(field_def.title + '_id')
-        elif field_def.relationship == 'has_many':
-            extended_model_names.append(inflection.singularize(field_def.title) + '_ids')
-    return extended_model_names
 
 
 def __match_field_value(cls, name, value):
@@ -163,8 +150,6 @@ def __match_field_value(cls, name, value):
                 field_def.allowed_types[index] = __substitute_class_refs(cls, field_name=field_def.title, required=field_def.required, field_type=allowed_type)
             if value_type not in field_def.allowed_types:
                 raise new_validation_error(value, name, field_def.allowed_types)
-            elif getattr(field_def, 'is_id_field', False) and value_type not in [int, long, unicode, str]:
-                raise new_validation_error(value, name, field_def.allowed_types)
 
 
 def match_field_values(cls, **kwargs):
@@ -175,7 +160,7 @@ def match_field_values(cls, **kwargs):
 def __remove_values(cls, condition, **kwargs):
     keys = set(kwargs.keys())
     for field_def in cls.FIELD_DEFS:
-        field_names = set(get_field_def_names(field_def))
+        field_names = set([field_def.title, field_def.alias])
         if condition(field_def) and (field_names & keys):
             del kwargs[(field_names & keys).pop()]
     return kwargs
