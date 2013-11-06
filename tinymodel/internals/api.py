@@ -166,15 +166,10 @@ def get_or_create(cls, service, endpoint_name=None, **kwargs):
     Performs a <get_or_create> operation. Optionally <find> and <create> service
     methods may be used instead of a service-specific <get_or_create>
     """
-    if hasattr(service, 'find') and hasattr(service, 'create') and not hasattr(service, 'get_or_create'):
-        found = find(cls, service, endpoint_name, **kwargs)
-        if found:
-            return found[0], False
-        return create(cls, service, endpoint_name, **kwargs), True
-    else:
-        obj, created = __call_api_method(cls, service, 'get_or_create', endpoint_name, True, **kwargs)
-        assert isinstance(created, bool), '%r did not return a boolean for param "created"' % service.get_or_create
-        return obj[0], created
+    found = find(cls, service, endpoint_name, **kwargs)
+    if found:
+        return found[0], False
+    return create(cls, service, endpoint_name, **kwargs), True
 
 
 def update(cls, service, endpoint_name=None, **kwargs):

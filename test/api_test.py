@@ -222,9 +222,6 @@ class APiTest(TestCase):
                 assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
                 ok_(not rendered4.called)
 
-    def test_get_or_create_natural_service(self):
-        self._test_get_or_create(Service(get_or_create=MagicMock()))
-
     def test_get_or_create_alt_service(self):
         self._test_get_or_create(Service(find=MagicMock(), create=MagicMock()))
 
@@ -240,7 +237,6 @@ class APiTest(TestCase):
             'create': {'return_value': MagicMock()},
             'update': {'return_value': MagicMock()},
             'delete': {'return_value': MagicMock()},
-            'get_or_create': {'return_value': (MagicMock(), random.choice([False, True]))},
         }
         service_kwargs = dict([(method_name, MagicMock()) for method_name in service_methods_kwargs.keys()])
         service = Service(**service_kwargs)
