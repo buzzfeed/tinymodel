@@ -34,6 +34,8 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+*.sublime-project
+*.sublime-workspace
 
 # Settings files
 settings.py
