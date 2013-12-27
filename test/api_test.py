@@ -109,18 +109,36 @@ class APiTest(TestCase):
 
     @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
     @patch('tinymodel.internals.api.match_field_values', None)
-    def test_find_matched_values_succed(self):
+    def test_services(self):
         service = ServiceMock(return_type='tinymodel')
         valid_params = self.VALID_PARAMS.copy()
         valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
                              'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
                              'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
                              'my_m2m_ids': [u'1', u'2']})
+        # testing matching values succed
         for key in valid_params.keys():
             MyTinyModel.find(service, **{key: 'foo'})
+        # test delete
+        MyTinyModel.delete(service, **self.TEST_DEFAULT_PARAMS)
+        MyTinyModel.delete(service, **self.VALID_PARAMS)
+        # test create
+        service = ServiceMock()
+        MyTinyModel.create(service, **self.TEST_DEFAULT_PARAMS)
+        MyTinyModel.create(service, **self.VALID_PARAMS)
+        # test update
+        MyTinyModel.update(service, **self.TEST_DEFAULT_PARAMS)
+        MyTinyModel.update(service, **self.VALID_PARAMS)
+        # test get_or_create
+        MyTinyModel.get_or_create(service, **self.TEST_DEFAULT_PARAMS)
+        MyTinyModel.get_or_create(service, **self.VALID_PARAMS)
+        assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+        # test sum
+        for key in valid_params.keys():
+            MyTinyModel.sum(service, return_fields=['my_int'], **{key: 'foo'})
 
     @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_find_and_matched_values(self):
+    def services_fail(self):
         service = ServiceMock(return_type='tinymodel')
         valid_params = self.VALID_PARAMS.copy()
         valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
@@ -157,54 +175,20 @@ class APiTest(TestCase):
             for r in ranges:
                 MyTinyModel.find(service, **{key: r})
 
-    @patch('tinymodel.internals.api.match_field_values', rvalue=None)
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_create_succed(self):
-        service = ServiceMock()
-        MyTinyModel.create(service, **self.TEST_DEFAULT_PARAMS)
-        MyTinyModel.create(service, **self.VALID_PARAMS)
-
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_create_fails(self):
-        service = ServiceMock(return_type='tinymodel')
+        # test create fails
         assert_raises(ModelException, MyTinyModel.create, service, **self.INVALID_PARAMS)
-
-    @patch('tinymodel.internals.api.match_field_values', rvalue=None)
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_delete_succed(self):
-        service = ServiceMock(return_type='tinymodel')
-        MyTinyModel.delete(service, **self.TEST_DEFAULT_PARAMS)
-        MyTinyModel.delete(service, **self.VALID_PARAMS)
-
-    @patch('tinymodel.internals.api.render_to_response', [{}])
-    def test_delete_fails(self):
-        service = ServiceMock(return_type='tinymodel')
+        # test delete fails
         assert_raises(ModelException, MyTinyModel.delete, service, **self.INVALID_PARAMS)
-
-    @patch('tinymodel.internals.api.match_field_values', rvalue=None)
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_update_succed(self):
-        service = ServiceMock()
-        MyTinyModel.update(service, **self.TEST_DEFAULT_PARAMS)
-        MyTinyModel.update(service, **self.VALID_PARAMS)
-
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_update_fails(self):
-        service = ServiceMock()
+        # test update fails
         assert_raises(ModelException, MyTinyModel.update, service, **self.INVALID_PARAMS)
-
-    @patch('tinymodel.internals.api.match_field_values', rvalue=None)
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_get_or_create_alt_service(self):
-        service = ServiceMock()
-        MyTinyModel.get_or_create(service, **self.TEST_DEFAULT_PARAMS)
-        MyTinyModel.get_or_create(service, **self.VALID_PARAMS)
-        assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
-
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[{}])
-    def test_get_or_create_alt_service_fails_match_values(self):
+        # test get_or_create fails
         service = ServiceMock()
         assert_raises(ModelException, MyTinyModel.get_or_create, service, **self.INVALID_PARAMS)
+        # test sum fails
+        for key in invalid_names:
+            assert_raises(ModelException, MyTinyModel.sum, service, return_fields=['my_int'], **{key: 'foo'})
+        for k, v in valid_params.iteritems():
+            assert_raises(ValueError, MyTinyModel.sum, service, **{k: v})
 
     def test_missing_service_function(self):
         service = Service()
@@ -258,31 +242,3 @@ class APiTest(TestCase):
         assert_raises(ValueError, MyTinyModel.create_or_update_by, service, by=['id'])
         assert_raises(ValueError, MyTinyModel.create_or_update_by, service, by=[], **{'name': 'test'})
         assert_raises(ValueError, MyTinyModel.create_or_update_by, service, by=['id'], **{'name': 'test'})
-
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[[{}]])
-    @patch('tinymodel.internals.validation.match_field_values', rvalue=[[{}]])
-    def test_sum_succeed(self):
-        valid_params = self.VALID_PARAMS.copy()
-        valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
-                             'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
-                             'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
-                             'my_m2m_ids': [u'1', u'2']})
-        service = ServiceMock()
-        for key in valid_params.keys():
-            MyTinyModel.sum(service, return_fields=['my_int'], **{key: 'foo'})
-
-    @patch('tinymodel.internals.api.render_to_response', rvalue=[[{}]])
-    def test_sum_fails(self):
-        valid_params = self.VALID_PARAMS.copy()
-        valid_params.update({'my_fk': MyOtherModel(id=1), 'my_m2m': [MyOtherModel(id=5)],
-                             'my_fk_id': 1, 'my_fk_id': 1L, 'my_fk_id': '1', 'my_fk_id': u'1',
-                             'my_m2m_ids': [1, 2], 'my_m2m_ids': [1L, 2L], 'my_m2m_ids': ['1', '2'],
-                             'my_m2m_ids': [u'1', u'2']})
-        invalid_params = self.INVALID_PARAMS.copy()
-        invalid_params.pop('foo', None)
-        invalid_names = ['my_other', 'foo', 'bar']
-        service = ServiceMock()
-        for key in invalid_names:
-            assert_raises(ModelException, MyTinyModel.sum, service, return_fields=['my_int'], **{key: 'foo'})
-        for k, v in valid_params.iteritems():
-            assert_raises(ValueError, MyTinyModel.sum, service, **{k: v})
