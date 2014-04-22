@@ -9,7 +9,7 @@ except ImportError:
 
 setup(
     name='tinymodel',
-    version='0.1.5',
+    version='0.1.6',
     author='Jeff Revesz',
     author_email='jeff.revesz@buzzfeed.com',
     packages=find_packages(),
@@ -19,6 +19,6 @@ setup(
         'pytz==2013b',
         'python-dateutil==2.1',
         'inflection==0.2.0',
-        'caliendo'
+        'caliendo==2.1.6'
     ],
 )
